@@ -1,0 +1,20 @@
+services:
+  db:
+    # no exposed port: DB is reachable only from the internal network
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: prod
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M

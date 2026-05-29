@@ -1,0 +1,17 @@
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app                             # air compiles on save
+      - reccelog-go-mod-cache:/go/pkg/mod  # module cache, faster builds
+    environment:
+      LOG_LEVEL: debug
+
+volumes:
+  reccelog-go-mod-cache:

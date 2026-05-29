@@ -1,0 +1,8 @@
+/bin/
+/.idea/
+/.vscode/
+/tmp/
+
+.env
+*.env
+!.env.example

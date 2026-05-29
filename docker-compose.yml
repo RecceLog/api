@@ -1,0 +1,31 @@
+name: RecceLog
+
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    container_name: reccelog_database
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - reccelog-db-data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    container_name: reccelog_api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${CONTAINER_EXTERNAL_PORT}:${API_PORT}"
+    environment:
+      DATABASE_CONNECTION_STRING: ${DATABASE_CONNECTION_STRING}
+      API_PORT: ${API_PORT}
+
+volumes:
+  reccelog-db-data:
