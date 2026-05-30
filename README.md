@@ -24,3 +24,20 @@ The command to create such a container is
 ```shell
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
+
+## Database migrations
+Migrations are handled with `goose`. Check the `.env.example` file to see the configuration to make goose commands easier.
+Once you added goose variables, you can run
+- `goose up` to migrate the database to the most recent version available
+- `goose up-by-one` to migrate the database up by 1
+- `goose up-to <version>` to migrate the database to a specific <version>
+- `goose down` to roll back the version by 1
+- `goose down-to <version>` to roll back to a specific <version>
+- `goose redo` to re-run the latest migration
+- `goose reset` to roll back all migrations
+- `goose status` to dump the migration status for the current database
+- `goose version` to print the current version of the database
+- `goose create <migration-name> [sql|go]` to create a new migration file with the current timestamp
+- `goose fix` to apply sequential ordering to migrations
+- `goose validate` to check migration files without running them
+- 
