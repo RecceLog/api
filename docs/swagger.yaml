@@ -1,0 +1,819 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  github_com_RecceLog_api_internal_http_dto.Coordinate:
+    properties:
+      lat:
+        type: number
+      lng:
+        type: number
+    type: object
+  github_com_RecceLog_api_internal_http_dto.CreateRouteRequest:
+    properties:
+      note_set:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetInput'
+      route:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.RouteInput'
+    type: object
+  github_com_RecceLog_api_internal_http_dto.NoteIn:
+    properties:
+      description:
+        type: string
+      direction:
+        type: string
+      order:
+        type: integer
+      position:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+      severity:
+        type: integer
+      type:
+        type: string
+    type: object
+  github_com_RecceLog_api_internal_http_dto.NoteResponse:
+    properties:
+      description:
+        type: string
+      direction:
+        type: string
+      id:
+        type: string
+      order:
+        type: integer
+      position:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+      severity:
+        type: integer
+      type:
+        type: string
+    type: object
+  github_com_RecceLog_api_internal_http_dto.NoteSetInput:
+    properties:
+      name:
+        type: string
+      notes:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn'
+        type: array
+    type: object
+  github_com_RecceLog_api_internal_http_dto.NoteSetResponse:
+    properties:
+      author_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse'
+        type: array
+      route_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_RecceLog_api_internal_http_dto.RouteDetailResponse:
+    properties:
+      author_id:
+        type: string
+      cover_photo_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      finish_city:
+        type: string
+      id:
+        type: string
+      length_m:
+        type: number
+      name:
+        type: string
+      note_sets:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetResponse'
+        type: array
+      path:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+        type: array
+      start_city:
+        type: string
+      updated_at:
+        type: string
+      vehicles:
+        items:
+          type: string
+        type: array
+      waypoints:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp'
+        type: array
+    type: object
+  github_com_RecceLog_api_internal_http_dto.RouteInput:
+    properties:
+      cover_photo_url:
+        type: string
+      description:
+        type: string
+      finish_city:
+        type: string
+      name:
+        type: string
+      path:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+        type: array
+      start_city:
+        type: string
+      vehicles:
+        items:
+          type: string
+        type: array
+      waypoints:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn'
+        type: array
+    type: object
+  github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse:
+    properties:
+      author_id:
+        type: string
+      cover_photo_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      finish_city:
+        type: string
+      id:
+        type: string
+      length_m:
+        type: number
+      name:
+        type: string
+      start_city:
+        type: string
+      updated_at:
+        type: string
+      vehicles:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_RecceLog_api_internal_http_dto.UserResponse:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_RecceLog_api_internal_http_dto.WaypointIn:
+    properties:
+      name:
+        type: string
+      order:
+        type: integer
+      position:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+    type: object
+  github_com_RecceLog_api_internal_http_dto.WaypointResp:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      order:
+        type: integer
+      position:
+        $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate'
+    type: object
+  github_com_RecceLog_api_internal_http_problem.Problem:
+    properties:
+      detail:
+        type: string
+      instance:
+        type: string
+      status:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+      violations:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Violation'
+        type: array
+    type: object
+  github_com_RecceLog_api_internal_http_problem.Violation:
+    properties:
+      field:
+        type: string
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: RecceLog
+  description: Routes, note sets and notes for the RecceLog application.
+  license:
+    name: Proprietary
+  title: RecceLog API
+  version: "0.1"
+paths:
+  /health:
+    get:
+      description: Returns ok if the database responds within 2s, otherwise degraded.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: '{\"status\": \"ok\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: '{\"status\": \"degraded\"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /v1/notes/{setID}:
+    delete:
+      description: Deletes the note set; ON DELETE CASCADE removes its notes.
+      parameters:
+      - description: Note set ID (UUID)
+        in: path
+        name: setID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid note set id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the note set author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Note set not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Delete a note set
+      tags:
+      - notes
+    get:
+      description: Returns the notes belonging to the given set, ordered by their
+        `order` field.
+      parameters:
+      - description: Note set ID (UUID)
+        in: path
+        name: setID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse'
+            type: array
+        "400":
+          description: Invalid note set id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Note set not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Get notes of a note set
+      tags:
+      - notes
+  /v1/notes/{setID}/{noteID}:
+    delete:
+      description: Deletes a note belonging to the given set. Returns 404 if the note
+        does not exist or is not in this set.
+      parameters:
+      - description: Note set ID (UUID)
+        in: path
+        name: setID
+        required: true
+        type: string
+      - description: Note ID (UUID)
+        in: path
+        name: noteID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid IDs
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the note set author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Note not found (or not in this set)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Delete a single note
+      tags:
+      - notes
+    patch:
+      consumes:
+      - application/json
+      description: Replaces position, order, type, severity, direction and description
+        of a note in a given set.
+      parameters:
+      - description: Note set ID (UUID)
+        in: path
+        name: setID
+        required: true
+        type: string
+      - description: Note ID (UUID)
+        in: path
+        name: noteID
+        required: true
+        type: string
+      - description: Updated note payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse'
+        "400":
+          description: Invalid IDs or malformed JSON
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the note set author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Note not found (or not in this set)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Update a single note
+      tags:
+      - notes
+  /v1/routes:
+    get:
+      description: Returns lightweight summaries (no path, no notes) — backed by a
+        single-table scan.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: List all routes
+      tags:
+      - routes
+    post:
+      consumes:
+      - application/json
+      description: Atomically inserts the route, its waypoints and the first note
+        set (with its notes). Queries are run in a transaction
+      parameters:
+      - description: Route + note set payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.CreateRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.RouteDetailResponse'
+        "400":
+          description: Malformed JSON or unknown fields
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed (missing note_set, bad enum, etc.)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Create a route with an initial note set
+      tags:
+      - routes
+  /v1/routes/{id}:
+    delete:
+      description: Deletes a route owned by the caller; cascades to its waypoints,
+        note sets and notes. Only the route author may delete it.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid route id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the route author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Route not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Delete a route
+      tags:
+      - routes
+    get:
+      description: Composes the route (with waypoints) and all its note sets (with
+        notes) in two queries.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.RouteDetailResponse'
+        "400":
+          description: Invalid route id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Route not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Get a route with its note sets
+      tags:
+      - routes
+  /v1/routes/{id}/notes:
+    post:
+      consumes:
+      - application/json
+      description: Inserts a new note set (and its notes) for the given route in a
+        single transaction.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Note set payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetResponse'
+        "400":
+          description: Invalid route id or malformed JSON
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Append a note set to a route
+      tags:
+      - routes
+  /v1/routes/{id}/waypoints:
+    post:
+      consumes:
+      - application/json
+      description: Inserts a single waypoint for the given route. Returns 404 if the
+        route does not exist.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Waypoint payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp'
+        "400":
+          description: Invalid route id or malformed JSON
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the route author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Route not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Add a waypoint to a route
+      tags:
+      - routes
+  /v1/routes/{id}/waypoints/{waypointID}:
+    delete:
+      description: Deletes a waypoint belonging to the given route. Returns 404 if
+        the waypoint does not exist or is not in this route.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Waypoint ID (UUID)
+        in: path
+        name: waypointID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid IDs
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the route author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Waypoint not found (or not in this route)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Delete a waypoint of a route
+      tags:
+      - routes
+    patch:
+      consumes:
+      - application/json
+      description: Replaces position, order and name of a waypoint belonging to the
+        given route.
+      parameters:
+      - description: Route ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Waypoint ID (UUID)
+        in: path
+        name: waypointID
+        required: true
+        type: string
+      - description: Updated waypoint payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp'
+        "400":
+          description: Invalid IDs or malformed JSON
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the route author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Waypoint not found (or not in this route)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Update a waypoint of a route
+      tags:
+      - routes
+  /v1/routes/range/{radius}:
+    get:
+      description: 'Spatial search using PostGIS ST_DWithin + GIST index. Center is
+        read from headers, radius is the path param (meters). Optionally filter by
+        vehicle: pass one or more `vehicle` query params (e.g. ?vehicle=CAR&vehicle=BIKE)
+        to return only routes traversable by at least one of them.'
+      parameters:
+      - description: Search radius in meters
+        in: path
+        name: radius
+        required: true
+        type: number
+      - collectionFormat: multi
+        description: 'Filter: routes traversable by at least one of these vehicles'
+        in: query
+        items:
+          type: string
+        name: vehicle
+        type: array
+      - description: Center latitude (WGS84)
+        in: header
+        name: Latitude
+        required: true
+        type: number
+      - description: Center longitude (WGS84)
+        in: header
+        name: Longitude
+        required: true
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse'
+            type: array
+        "400":
+          description: Invalid radius or missing headers
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Coordinates out of range, radius too large or invalid vehicle
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: List routes within a radius
+      tags:
+      - routes
+  /v1/users/{id}:
+    get:
+      description: Returns the public profile (display name, description, avatar)
+        of a user by id.
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.UserResponse'
+        "400":
+          description: Invalid user id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Get a user's public profile
+      tags:
+      - users
+  /v1/users/me:
+    get:
+      description: Returns the profile of the authenticated caller (the local user
+        provisioned from the Keycloak token).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.UserResponse'
+        "401":
+          description: Missing or invalid token
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Get the current user
+      tags:
+      - users
+produces:
+- application/json
+schemes:
+- http
+- https
+swagger: "2.0"

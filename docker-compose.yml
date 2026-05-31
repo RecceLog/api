@@ -16,16 +16,73 @@ services:
       timeout: 5s
       retries: 5
 
+  # Keycloak's own database — kept separate from the app DB so the IdP's schema
+  # never mixes with application data.
+  keycloak-db:
+    image: postgres:18-alpine
+    container_name: reccelog_keycloak_db
+    environment:
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+    volumes:
+      - reccelog-keycloak-db-data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: reccelog_keycloak
+    command: [ "start-dev", "--import-realm" ]
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      # Public base URL the browser uses → drives the token `iss`. The API's
+      # KEYCLOAK_ISSUER_URL must match this (with the /realms/<realm> suffix).
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8081}
+      # Keep frontchannel URLs (issuer) fixed at KC_HOSTNAME, but resolve
+      # backchannel URLs (jwks_uri, token endpoint) from the request host so the
+      # API can fetch JWKS at http://keycloak:8080 in-network while tokens still
+      # carry the public localhost:8081 issuer.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KC_PORT:-8081}:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
   api:
     container_name: reccelog_api
     depends_on:
       db:
         condition: service_healthy
+      # Ordering only: the token verifier initializes lazily, so the API
+      # tolerates Keycloak still warming up — it just needs Keycloak started.
+      keycloak:
+        condition: service_started
     ports:
       - "${CONTAINER_EXTERNAL_PORT}:${API_PORT}"
     environment:
       DATABASE_CONNECTION_STRING: ${DATABASE_CONNECTION_STRING}
       API_PORT: ${API_PORT}
+      # Auth (Keycloak). Same compose default network → the API reaches Keycloak
+      # at http://keycloak:8080. ISSUER is the public `iss` the browser-obtained
+      # tokens carry; DISCOVERY is the in-network URL used for OIDC discovery.
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8081/realms/reccelog}
+      KEYCLOAK_DISCOVERY_URL: ${KEYCLOAK_DISCOVERY_URL:-http://keycloak:8080/realms/reccelog}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
 
 volumes:
   reccelog-db-data:
+  reccelog-keycloak-db-data:

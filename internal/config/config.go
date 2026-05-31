@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -12,6 +13,8 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
+	Auth     AuthConfig
+	Mapbox   MapboxConfig
 }
 
 type ServerConfig struct {
@@ -19,6 +22,10 @@ type ServerConfig struct {
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
+	// AllowedOrigins is the list of CORS Origin patterns the server will
+	// allow (e.g. "http://localhost:*", "https://app.example.com"). Empty
+	// means localhost-only — safe default for dev.
+	AllowedOrigins []string
 }
 
 type DatabaseConfig struct {
@@ -29,6 +36,28 @@ type DatabaseConfig struct {
 	MaxConnIdleTime time.Duration
 }
 
+// MapboxConfig holds the credentials for server-side Mapbox API calls.
+type MapboxConfig struct {
+	// AccessToken is the Mapbox secret token used for server-side geocoding.
+	// When empty, geocoding is disabled and routes are created without
+	// auto-filled city names.
+	AccessToken string
+}
+
+// AuthConfig holds the Keycloak/OIDC settings used to validate bearer tokens.
+type AuthConfig struct {
+	// IssuerURL is the public realm URL that must match the token `iss`
+	// claim, e.g. "http://localhost:8081/realms/reccelog".
+	IssuerURL string
+	// DiscoveryURL is the URL the API uses to reach Keycloak for OIDC
+	// discovery and JWKS (e.g. the in-network "http://keycloak:8080/realms/
+	// reccelog"). Empty means "same as IssuerURL".
+	DiscoveryURL string
+	// Audience, when non-empty, is verified against the token `aud` claim.
+	// Empty disables the audience check.
+	Audience string
+}
+
 // Load reads environment variables and sets server and database configuration data or returns an error.
 // Environment variables read are:
 //   - DATABASE_CONNECTION_STRING: connection string to postgres db, if missing, the function will return an error
@@ -36,6 +65,10 @@ type DatabaseConfig struct {
 //   - API_READ_TIMEOUT: maximum time specified in seconds to read the request, if missing, default value is 5
 //   - API_WRITE_TIMEOUT: maximum time specified in seconds to write the request, if missing, default value is 10
 //   - API_SHUTDOWN_TIMEOUT: maximum time specified in seconds to shut down the server, if missing, default value is 15 seconds
+//   - API_ALLOWED_ORIGINS: comma-separated CORS origins (e.g. "https://app.example.com,https://staging.example.com"), if missing, defaults to "http://localhost:*,http://127.0.0.1:*"
+//   - KEYCLOAK_ISSUER_URL: public realm URL that must match the token `iss` claim (e.g. "http://localhost:8081/realms/reccelog"), if missing, the function will return an error
+//   - KEYCLOAK_DISCOVERY_URL: URL the API uses to reach Keycloak for OIDC discovery/JWKS (e.g. "http://keycloak:8080/realms/reccelog"), if missing, defaults to KEYCLOAK_ISSUER_URL
+//   - KEYCLOAK_AUDIENCE: expected token `aud` claim; if missing, the audience check is skipped
 //   - DB_MAX_CONNECTIONS: amount of maximum connection of the pool to the database, if missing, default value is 10
 //   - DB_MIN_CONNECTIONS: amount of minimum connection of the pool to the database, if missing, default value is 0
 //   - DB_MAX_CONN_LIFETIME: maximum time specified in hours that a connection of the pool can stay alive, if missing, default value is 1
@@ -51,12 +84,23 @@ func Load() (Config, error) {
 		return Config{}, errors.New("missing API_PORT environment variable")
 	}
 
+	issuerURL := os.Getenv("KEYCLOAK_ISSUER_URL")
+	if issuerURL == "" {
+		return Config{}, errors.New("missing KEYCLOAK_ISSUER_URL environment variable")
+	}
+
+	allowedOrigins := []string{"http://localhost:*", "http://127.0.0.1:*"}
+	if raw := os.Getenv("API_ALLOWED_ORIGINS"); raw != "" {
+		allowedOrigins = splitAndTrim(raw)
+	}
+
 	return Config{
 		Server: ServerConfig{
 			Port:            port,
 			ReadTimeout:     getEnv("API_READ_TIMEOUT", 5*time.Second),
 			WriteTimeout:    getEnv("API_WRITE_TIMEOUT", 10*time.Second),
 			ShutdownTimeout: getEnv("API_SHUTDOWN_TIMEOUT", 15*time.Second),
+			AllowedOrigins:  allowedOrigins,
 		},
 		Database: DatabaseConfig{
 			DSN:             dsn,
@@ -65,7 +109,28 @@ func Load() (Config, error) {
 			MaxConnLifetime: getEnv("DB_MAX_CONN_LIFETIME", time.Hour),
 			MaxConnIdleTime: getEnv("DB_MAX_CONN_IDLE_TIME", 30*time.Minute),
 		},
+		Auth: AuthConfig{
+			IssuerURL:    issuerURL,
+			DiscoveryURL: os.Getenv("KEYCLOAK_DISCOVERY_URL"),
+			Audience:     os.Getenv("KEYCLOAK_AUDIENCE"),
+		},
+		Mapbox: MapboxConfig{
+			AccessToken: os.Getenv("MAPBOX_ACCESS_TOKEN"),
+		},
 	}, nil
+}
+
+// splitAndTrim splits a comma-separated env var, trimming whitespace and
+// dropping empty entries — so " a, b ,, c " yields []string{"a","b","c"}.
+func splitAndTrim(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // envValue specifies variable types accepted for getEnv

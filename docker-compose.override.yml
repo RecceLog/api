@@ -12,6 +12,7 @@ services:
       - reccelog-go-mod-cache:/go/pkg/mod  # module cache, faster builds
     environment:
       LOG_LEVEL: debug
+      MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
 
 volumes:
   reccelog-go-mod-cache:

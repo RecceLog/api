@@ -1,0 +1,1214 @@
+{
+    "consumes": [
+        "application/json"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Routes, note sets and notes for the RecceLog application.",
+        "title": "RecceLog API",
+        "contact": {
+            "name": "RecceLog"
+        },
+        "license": {
+            "name": "Proprietary"
+        },
+        "version": "0.1"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Returns ok if the database responds within 2s, otherwise degraded.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "{\\\"status\\\": \\\"ok\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "{\\\"status\\\": \\\"degraded\\\"}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/notes/{setID}": {
+            "get": {
+                "description": "Returns the notes belonging to the given set, ordered by their `order` field.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notes"
+                ],
+                "summary": "Get notes of a note set",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Note set ID (UUID)",
+                        "name": "setID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid note set id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Note set not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes the note set; ON DELETE CASCADE removes its notes.",
+                "tags": [
+                    "notes"
+                ],
+                "summary": "Delete a note set",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Note set ID (UUID)",
+                        "name": "setID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid note set id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the note set author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Note set not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/notes/{setID}/{noteID}": {
+            "delete": {
+                "description": "Deletes a note belonging to the given set. Returns 404 if the note does not exist or is not in this set.",
+                "tags": [
+                    "notes"
+                ],
+                "summary": "Delete a single note",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Note set ID (UUID)",
+                        "name": "setID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Note ID (UUID)",
+                        "name": "noteID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid IDs",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the note set author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Note not found (or not in this set)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Replaces position, order, type, severity, direction and description of a note in a given set.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notes"
+                ],
+                "summary": "Update a single note",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Note set ID (UUID)",
+                        "name": "setID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Note ID (UUID)",
+                        "name": "noteID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated note payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid IDs or malformed JSON",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the note set author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Note not found (or not in this set)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes": {
+            "get": {
+                "description": "Returns lightweight summaries (no path, no notes) — backed by a single-table scan.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "List all routes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Atomically inserts the route, its waypoints and the first note set (with its notes). Queries are run in a transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Create a route with an initial note set",
+                "parameters": [
+                    {
+                        "description": "Route + note set payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.CreateRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.RouteDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed JSON or unknown fields",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (missing note_set, bad enum, etc.)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/range/{radius}": {
+            "get": {
+                "description": "Spatial search using PostGIS ST_DWithin + GIST index. Center is read from headers, radius is the path param (meters). Optionally filter by vehicle: pass one or more `vehicle` query params (e.g. ?vehicle=CAR\u0026vehicle=BIKE) to return only routes traversable by at least one of them.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "List routes within a radius",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "description": "Search radius in meters",
+                        "name": "radius",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Filter: routes traversable by at least one of these vehicles",
+                        "name": "vehicle",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Center latitude (WGS84)",
+                        "name": "Latitude",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Center longitude (WGS84)",
+                        "name": "Longitude",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid radius or missing headers",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Coordinates out of range, radius too large or invalid vehicle",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/{id}": {
+            "get": {
+                "description": "Composes the route (with waypoints) and all its note sets (with notes) in two queries.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Get a route with its note sets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.RouteDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid route id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Route not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes a route owned by the caller; cascades to its waypoints, note sets and notes. Only the route author may delete it.",
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Delete a route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid route id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the route author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Route not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/{id}/notes": {
+            "post": {
+                "description": "Inserts a new note set (and its notes) for the given route in a single transaction.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Append a note set to a route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Note set payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid route id or malformed JSON",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/{id}/waypoints": {
+            "post": {
+                "description": "Inserts a single waypoint for the given route. Returns 404 if the route does not exist.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Add a waypoint to a route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Waypoint payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid route id or malformed JSON",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the route author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Route not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/routes/{id}/waypoints/{waypointID}": {
+            "delete": {
+                "description": "Deletes a waypoint belonging to the given route. Returns 404 if the waypoint does not exist or is not in this route.",
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Delete a waypoint of a route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Waypoint ID (UUID)",
+                        "name": "waypointID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid IDs",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the route author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Waypoint not found (or not in this route)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Replaces position, order and name of a waypoint belonging to the given route.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routes"
+                ],
+                "summary": "Update a waypoint of a route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Waypoint ID (UUID)",
+                        "name": "waypointID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated waypoint payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid IDs or malformed JSON",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the route author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Waypoint not found (or not in this route)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/me": {
+            "get": {
+                "description": "Returns the profile of the authenticated caller (the local user provisioned from the Keycloak token).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get the current user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.UserResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/users/{id}": {
+            "get": {
+                "description": "Returns the public profile (display name, description, avatar) of a user by id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get a user's public profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.UserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_RecceLog_api_internal_http_dto.Coordinate": {
+            "type": "object",
+            "properties": {
+                "lat": {
+                    "type": "number"
+                },
+                "lng": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.CreateRouteRequest": {
+            "type": "object",
+            "properties": {
+                "note_set": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetInput"
+                },
+                "route": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.RouteInput"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.NoteIn": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "position": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                },
+                "severity": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.NoteResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "position": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                },
+                "severity": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.NoteSetInput": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn"
+                    }
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.NoteSetResponse": {
+            "type": "object",
+            "properties": {
+                "author_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse"
+                    }
+                },
+                "route_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.RouteDetailResponse": {
+            "type": "object",
+            "properties": {
+                "author_id": {
+                    "type": "string"
+                },
+                "cover_photo_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "finish_city": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "length_m": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "note_sets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteSetResponse"
+                    }
+                },
+                "path": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                    }
+                },
+                "start_city": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vehicles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "waypoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointResp"
+                    }
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.RouteInput": {
+            "type": "object",
+            "properties": {
+                "cover_photo_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "finish_city": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                    }
+                },
+                "start_city": {
+                    "type": "string"
+                },
+                "vehicles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "waypoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.WaypointIn"
+                    }
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "author_id": {
+                    "type": "string"
+                },
+                "cover_photo_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "finish_city": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "length_m": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "start_city": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vehicles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.UserResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.WaypointIn": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "position": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.WaypointResp": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "position": {
+                    "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.Coordinate"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_problem.Problem": {
+            "type": "object",
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "instance": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "violations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Violation"
+                    }
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_problem.Violation": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

@@ -2,6 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
+  pre_cmd = ["swag init -g cmd/api/main.go --parseDependency --parseInternal -o docs"]
   cmd = "go build -o ./tmp/api ./cmd/api"
   bin = "./tmp/api"
   include_ext = ["go"]

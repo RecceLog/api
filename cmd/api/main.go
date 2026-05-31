@@ -9,12 +9,28 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/RecceLog/api/internal/auth"
 	"github.com/RecceLog/api/internal/config"
 	apihttp "github.com/RecceLog/api/internal/http"
+	"github.com/RecceLog/api/internal/mapbox"
+	"github.com/RecceLog/api/internal/notes"
+	"github.com/RecceLog/api/internal/routes"
 	"github.com/RecceLog/api/internal/storage/postgres"
+	"github.com/RecceLog/api/internal/users"
 )
 
 // main configures the logger and starts the server, handling graceful shutdown.
+//
+// @title                       RecceLog API
+// @version                     0.1
+// @description                 Routes, note sets and notes for the RecceLog application.
+// @contact.name                RecceLog
+// @license.name                Proprietary
+// @host                        localhost:8080
+// @BasePath                    /
+// @schemes                     http https
+// @accept                      json
+// @produce                     json
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
@@ -44,10 +60,31 @@ func run() error {
 	defer pool.Close()
 	slog.Info("Connected to database")
 
+	// per-aggregate repos + services, sharing one reentrant Transactor
+	tx := postgres.NewTransactor(pool)
+
+	// Mapbox geocoder: optional — nil when no token is configured, which
+	// disables start/finish city enrichment without breaking anything.
+	var geocoder routes.Geocoder
+	if cfg.Mapbox.AccessToken != "" {
+		geocoder = mapbox.NewHTTPGeocoder(cfg.Mapbox.AccessToken)
+	} else {
+		slog.Warn("MAPBOX_ACCESS_TOKEN not set — start/finish city auto-fill disabled")
+	}
+
+	routesSvc := routes.NewService(postgres.NewRoutes(pool), tx, geocoder)
+	notesSvc := notes.NewService(postgres.NewNotes(pool), tx)
+	usersSvc := users.NewService(postgres.NewUsers(pool))
+
+	// auth: validate Keycloak tokens (JWKS init is lazy, so the API boots even
+	// if Keycloak is not yet reachable) and provision local users just-in-time.
+	verifier := auth.NewOIDCVerifier(cfg.Auth.IssuerURL, cfg.Auth.DiscoveryURL, cfg.Auth.Audience)
+	authMW := auth.NewMiddleware(verifier, usersSvc)
+
 	// server configuration
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
-		Handler:      apihttp.NewServer(pool).Router(),
+		Handler:      apihttp.NewServer(pool, tx, routesSvc, notesSvc, usersSvc, authMW, cfg.Server.AllowedOrigins).Router(),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
