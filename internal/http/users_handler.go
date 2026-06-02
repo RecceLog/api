@@ -2,7 +2,10 @@ package http
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
+	"github.com/RecceLog/api/internal/users"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
@@ -56,4 +59,47 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, dto.FromUser(user))
+}
+
+// handleGetProfilePic streams a user's profile picture. The application layer
+// decides which file to serve (custom avatar or default) and its content type;
+// the handler only resolves that to a path under the avatars directory and
+// streams the bytes. The file name comes from the parsed UUID (never the raw
+// URL), so it cannot escape the directory.
+//
+// @Summary     Get a user's profile picture
+// @Description Returns the user's avatar image (custom if set, otherwise the default).
+// @Tags        users
+// @Produce     png
+// @Produce     jpeg
+// @Param       id   path  string  true  "User ID (UUID)"
+// @Success     200  "Image bytes"
+// @Failure     400  {object}  problem.Problem  "Invalid user id"
+// @Failure     404  {object}  problem.Problem  "User not found"
+// @Failure     500  {object}  problem.Problem
+// @Router      /v1/users/{id}/profile_pic [get]
+func (s *Server) handleGetProfilePic(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		problem.BadRequest(w, r, "invalid user id")
+		return
+	}
+
+	name, contentType, err := s.users.ProfilePicture(r.Context(), id)
+	if err != nil {
+		problem.From(w, r, err)
+		return
+	}
+
+	path := filepath.Join(s.avatarsDir, name)
+	// If a custom avatar is recorded but its file is missing, fall back to the
+	// default rather than 404-ing the image.
+	if _, statErr := os.Stat(path); statErr != nil {
+		path = filepath.Join(s.avatarsDir, users.DefaultAvatarFile)
+		contentType = "image/png"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeFile(w, r, path)
 }

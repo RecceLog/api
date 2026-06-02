@@ -53,3 +53,28 @@ func (s *Service) EnsureProvisioned(ctx context.Context, keycloakSub, displayNam
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
 	return s.repo.GetByID(ctx, id)
 }
+
+// DefaultAvatarFile is the avatar served for a user with no custom picture.
+const DefaultAvatarFile = "default.png"
+
+// ProfilePicture resolves which avatar to serve for a user: the file name and
+// its content type. A user with a custom avatar maps to "<id>.<ext>" with the
+// stored content type; otherwise to the default image. It only decides the
+// logical file — turning that into a path on disk and streaming the bytes is
+// the HTTP layer's job. Returns domain.ErrNotFound if the user does not exist.
+func (s *Service) ProfilePicture(ctx context.Context, id uuid.UUID) (name, contentType string, err error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return "", "", err
+	}
+	switch user.AvatarContentType {
+	case "image/png":
+		return id.String() + ".png", "image/png", nil
+	case "image/jpeg":
+		return id.String() + ".jpg", "image/jpeg", nil
+	case "image/webp":
+		return id.String() + ".webp", "image/webp", nil
+	default:
+		return DefaultAvatarFile, "image/png", nil
+	}
+}

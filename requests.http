@@ -1,0 +1,514 @@
+# RecceLog API — manual test requests
+# Works with the VS Code "REST Client" extension and the JetBrains HTTP client.
+#
+# AUTH (VS Code REST Client)
+# ----
+# Run the "login" request once; every protected request below reads its result
+# via  Authorization: Bearer {{login.response.body.$.access_token}}.
+#
+# "login" uses the password grant, which requires `directAccessGrantsEnabled:
+# true` on the `reccelog-web` client. We disabled it for security — re-enable it
+# in the Keycloak admin console (Clients → reccelog-web → Settings), or in
+# keycloak/realm-export.json + re-import the realm, for local testing.
+#
+# IDs: after creating/reading resources, paste their ids into the @… variables.
+
+@host = http://localhost:8080
+@keycloak = http://localhost:8081
+@realm = reccelog
+@clientId = reccelog-web
+@username = tester
+@password = test123
+
+# Fill these in as you go:
+@routeId = 00000000-0000-0000-0000-000000000000
+@setId = 00000000-0000-0000-0000-000000000000
+@noteId = 00000000-0000-0000-0000-000000000000
+@waypointId = 00000000-0000-0000-0000-000000000000
+@userId = 00000000-0000-0000-0000-000000000000
+
+
+###############################################################################
+# AUTH
+###############################################################################
+
+# @name login
+# Run this first; the protected requests below read its response via
+# {{login.response.body.$.access_token}} (VS Code REST Client).
+# Requires directAccessGrantsEnabled=true on the reccelog-web client.
+POST {{keycloak}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id={{clientId}}&username={{username}}&password={{password}}
+
+###############################################################################
+# HEALTH / DOCS
+###############################################################################
+
+GET {{host}}/health
+
+###
+GET {{host}}/swagger/index.html
+
+###############################################################################
+# ROUTES — public reads
+###############################################################################
+
+# List all routes → 200
+GET {{host}}/v1/routes
+
+###
+# Get one route → 200
+GET {{host}}/v1/routes/{{routeId}}
+
+###
+# Invalid route id → 400
+GET {{host}}/v1/routes/not-a-uuid
+
+###
+# Nonexistent route → 404
+GET {{host}}/v1/routes/019e8012-0000-7000-8000-000000000000
+
+###############################################################################
+# ROUTES — nearby search (GET /v1/routes/range/{radius})
+###############################################################################
+
+# Valid: center via headers, radius in metres → 200
+GET {{host}}/v1/routes/range/10000
+Latitude: 45.46
+Longitude: 9.19
+
+###
+# With vehicle filter (repeatable) → 200
+GET {{host}}/v1/routes/range/50000?vehicle=CAR&vehicle=BIKE
+Latitude: 45.46
+Longitude: 9.19
+
+###
+# Missing Latitude/Longitude headers → 400
+GET {{host}}/v1/routes/range/10000
+
+###
+# Invalid radius (not a number) → 400
+GET {{host}}/v1/routes/range/abc
+Latitude: 45.46
+Longitude: 9.19
+
+###
+# Radius too large (> 500 km) → 422
+GET {{host}}/v1/routes/range/600000
+Latitude: 45.46
+Longitude: 9.19
+
+###
+# Invalid vehicle in filter → 422
+GET {{host}}/v1/routes/range/10000?vehicle=PLANE
+Latitude: 45.46
+Longitude: 9.19
+
+###############################################################################
+# CREATE ROUTE — POST /v1/routes  (the edge-case matrix)
+###############################################################################
+
+# 1) No token → 401
+POST {{host}}/v1/routes
+Content-Type: application/json
+
+{
+  "route": { "name": "x", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 2) No body at all → 400 (cannot decode)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+###
+# 3) Empty body → 400
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+
+
+###
+# 4) Body is {} → note_set missing → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{}
+
+###
+# 5) Only route, no note_set → 422 (note_set required at creation)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": {
+    "name": "Only route",
+    "vehicles": ["CAR"],
+    "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ]
+  }
+}
+
+###
+# 6) Only note_set, no route → 422 (route invalid: no path, no vehicles)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "note_set": { "name": "Set", "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 7) note_set present but with NO notes → 422 (at least one note)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "name": "Empty set", "notes": [] }
+}
+
+###
+# 8) Unknown field → 400 (DisallowUnknownFields)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] },
+  "surprise": true
+}
+
+###
+# 9) Path with a single point → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 10) Invalid vehicle value → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["PLANE"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 11) Duplicate vehicles → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR", "CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 12) More than 4 vehicles → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["FOOT", "BIKE", "MOTORCYCLE", "CAR", "FOOT"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 13) Indication note without a direction → 422 (direction mandatory)
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "INDICATION", "position": { "lng": 9.19, "lat": 45.46 } } ] }
+}
+
+###
+# 14) Non-straight indication without severity → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "INDICATION", "direction": "LEFT", "position": { "lng": 9.19, "lat": 45.46 } } ] }
+}
+
+###
+# 15) Severity out of range (8) → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "R", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING", "severity": 8, "position": { "lng": 9.19, "lat": 45.46 } } ] }
+}
+
+###
+# 16) Name too long (> 120 chars) → 422
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": { "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "vehicles": ["CAR"], "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 12.49, "lat": 41.90 } ] },
+  "note_set": { "notes": [ { "order": 1, "type": "WARNING" } ] }
+}
+
+###
+# 17) VALID — cities omitted (auto-filled by Mapbox, or "N/A") → 201
+#     Copy the returned "id" into @routeId and a note_set id into @setId.
+# @name createRoute
+POST {{host}}/v1/routes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "route": {
+    "name": "Milano - Roma",
+    "description": "Test route",
+    "vehicles": ["CAR", "MOTORCYCLE"],
+    "path": [ { "lng": 9.19, "lat": 45.46 }, { "lng": 11.34, "lat": 44.49 }, { "lng": 12.49, "lat": 41.90 } ]
+  },
+  "note_set": {
+    "name": "Main set",
+    "notes": [
+      { "order": 1, "type": "INDICATION", "direction": "STRAIGHT", "position": { "lng": 9.19, "lat": 45.46 } },
+      { "order": 2, "type": "INDICATION", "direction": "RIGHT", "severity": 4, "position": { "lng": 11.34, "lat": 44.49 } },
+      { "order": 3, "type": "WARNING", "description": "Gravel", "position": { "lng": 12.49, "lat": 41.90 } }
+    ]
+  }
+}
+
+###############################################################################
+# ADD NOTE SET — POST /v1/routes/{id}/notes
+# (any authenticated user may annotate any route — no ownership check)
+###############################################################################
+
+# No token → 401
+POST {{host}}/v1/routes/{{routeId}}/notes
+Content-Type: application/json
+
+{ "notes": [ { "order": 1, "type": "WARNING" } ] }
+
+###
+# Invalid route id → 400
+POST {{host}}/v1/routes/not-a-uuid/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "notes": [ { "order": 1, "type": "WARNING" } ] }
+
+###
+# Empty body → 400
+POST {{host}}/v1/routes/{{routeId}}/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+###
+# {} → no notes → 422
+POST {{host}}/v1/routes/{{routeId}}/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{}
+
+###
+# Nonexistent route → 404 (FK violation mapped to not found)
+POST {{host}}/v1/routes/019e8012-0000-7000-8000-000000000000/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "notes": [ { "order": 1, "type": "WARNING" } ] }
+
+###
+# Note farther than 50 m from the route path → 422
+POST {{host}}/v1/routes/{{routeId}}/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "notes": [ { "order": 1, "type": "WARNING", "position": { "lng": 0, "lat": 0 } } ] }
+
+###
+# Valid → 201
+POST {{host}}/v1/routes/{{routeId}}/notes
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{
+  "name": "Extra set",
+  "notes": [ { "order": 1, "type": "INDICATION", "direction": "CHICANE", "severity": 5, "position": { "lng": 11.34, "lat": 44.49 } } ]
+}
+
+###############################################################################
+# WAYPOINTS — POST/PATCH/DELETE under /v1/routes/{id}/waypoints
+# (only the route author may mutate)
+###############################################################################
+
+# No token → 401
+POST {{host}}/v1/routes/{{routeId}}/waypoints
+Content-Type: application/json
+
+{ "name": "WP1", "order": 1, "position": { "lng": 11.0, "lat": 44.0 } }
+
+###
+# Invalid body → 400
+POST {{host}}/v1/routes/{{routeId}}/waypoints
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "order": "nope" }
+
+###
+# Nonexistent route → 404 (or 403 if not the author)
+POST {{host}}/v1/routes/019e8012-0000-7000-8000-000000000000/waypoints
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "name": "WP1", "order": 1, "position": { "lng": 11.0, "lat": 44.0 } }
+
+###
+# Valid (author) → 201. Copy the returned id into @waypointId.
+# @name addWaypoint
+POST {{host}}/v1/routes/{{routeId}}/waypoints
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "name": "Checkpoint", "order": 1, "position": { "lng": 11.34, "lat": 44.49 } }
+
+###
+# Update waypoint → 200
+PATCH {{host}}/v1/routes/{{routeId}}/waypoints/{{waypointId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "name": "Checkpoint (moved)", "order": 1, "position": { "lng": 11.40, "lat": 44.50 } }
+
+###
+# Update with a waypoint id not in this route → 404
+PATCH {{host}}/v1/routes/{{routeId}}/waypoints/019e8012-0000-7000-8000-000000000000
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "name": "x", "order": 1, "position": { "lng": 11.0, "lat": 44.0 } }
+
+###
+# Delete waypoint → 204
+DELETE {{host}}/v1/routes/{{routeId}}/waypoints/{{waypointId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+###############################################################################
+# NOTES — GET/PATCH/DELETE under /v1/notes
+###############################################################################
+
+# Get notes of a set → 200 (use a set id from a created route)
+GET {{host}}/v1/notes/{{setId}}
+
+###
+# Invalid set id → 400
+GET {{host}}/v1/notes/not-a-uuid
+
+###
+# Nonexistent set → 404
+GET {{host}}/v1/notes/019e8012-0000-7000-8000-000000000000
+
+###
+# Update a note (only the set author) → 200
+PATCH {{host}}/v1/notes/{{setId}}/{{noteId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "order": 1, "type": "WARNING", "description": "Updated", "position": { "lng": 9.19, "lat": 45.46 } }
+
+###
+# Update violating the severity rule (non-straight indication, no severity) → 422
+PATCH {{host}}/v1/notes/{{setId}}/{{noteId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "order": 1, "type": "INDICATION", "direction": "LEFT", "position": { "lng": 9.19, "lat": 45.46 } }
+
+###
+# Note id not in this set → 404
+PATCH {{host}}/v1/notes/{{setId}}/019e8012-0000-7000-8000-000000000000
+Authorization: Bearer {{login.response.body.$.access_token}}
+Content-Type: application/json
+
+{ "order": 1, "type": "WARNING", "position": { "lng": 9.19, "lat": 45.46 } }
+
+###
+# Delete a note → 204
+DELETE {{host}}/v1/notes/{{setId}}/{{noteId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+###
+# Delete a note set → 204 (cascades to its notes)
+DELETE {{host}}/v1/notes/{{setId}}
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+###############################################################################
+# USERS
+###############################################################################
+
+# Current user (no token) → 401
+GET {{host}}/v1/users/me
+
+###
+# Current user (with token) → 200. Copy "id" into @userId.
+# @name me
+GET {{host}}/v1/users/me
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+###
+# Public profile by id → 200
+GET {{host}}/v1/users/{{userId}}
+
+###
+# Invalid user id → 400
+GET {{host}}/v1/users/not-a-uuid
+
+###
+# Nonexistent user → 404
+GET {{host}}/v1/users/019e8012-0000-7000-8000-000000000000
+
+###
+# Profile picture (custom or default image) → 200
+GET {{host}}/v1/users/{{userId}}/profile_pic
+
+###############################################################################
+# DELETE ROUTE — DELETE /v1/routes/{id}  (only the author; run last)
+###############################################################################
+
+# No token → 401
+DELETE {{host}}/v1/routes/{{routeId}}
+
+###
+# Nonexistent route → 404
+DELETE {{host}}/v1/routes/019e8012-0000-7000-8000-000000000000
+Authorization: Bearer {{login.response.body.$.access_token}}
+
+###
+# Valid (author) → 204 (cascades to waypoints, note sets, notes)
+DELETE {{host}}/v1/routes/{{routeId}}
+Authorization: Bearer {{login.response.body.$.access_token}}

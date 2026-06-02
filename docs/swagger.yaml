@@ -170,6 +170,10 @@ definitions:
   github_com_RecceLog_api_internal_http_dto.UserResponse:
     properties:
       avatar_url:
+        description: |-
+          AvatarURL is the canonical, always-present URL of the user's profile
+          picture. It is derived from the id (not stored): the endpoint serves the
+          custom avatar when one exists, otherwise the default image.
         type: string
       created_at:
         type: string
@@ -556,6 +560,10 @@ paths:
           description: Invalid route id or malformed JSON
           schema:
             $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Route not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
         "422":
           description: Validation failed
           schema:
@@ -787,6 +795,36 @@ paths:
           schema:
             $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
       summary: Get a user's public profile
+      tags:
+      - users
+  /v1/users/{id}/profile_pic:
+    get:
+      description: Returns the user's avatar image (custom if set, otherwise the default).
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - image/png
+      - image/jpeg
+      responses:
+        "200":
+          description: Image bytes
+        "400":
+          description: Invalid user id
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Get a user's profile picture
       tags:
       - users
   /v1/users/me:

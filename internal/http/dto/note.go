@@ -10,8 +10,8 @@ import (
 
 // NoteSetInput is the writable portion of a NoteSet.
 type NoteSetInput struct {
-	Name  string    `json:"name"`
-	Notes []NoteIn  `json:"notes"`
+	Name  string   `json:"name"`
+	Notes []NoteIn `json:"notes"`
 }
 
 // ToDomain maps to domain.NoteSet. The caller fills in RouteID and AuthorID

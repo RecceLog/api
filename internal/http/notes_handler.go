@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/RecceLog/api/internal/auth"
 	"github.com/RecceLog/api/internal/http/dto"
 	"github.com/RecceLog/api/internal/http/problem"
 )
@@ -29,7 +30,7 @@ func (s *Server) handleGetNotes(w http.ResponseWriter, r *http.Request) {
 		problem.BadRequest(w, r, "invalid note set id")
 		return
 	}
-	notes, err := s.notes.ListBySetID(r.Context(), setID)
+	notes, err := s.notes.GetNotes(r.Context(), setID)
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -68,13 +69,8 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.notes.GetSetAuthor(r.Context(), setID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
-
 	var body dto.NoteIn
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		problem.BadRequest(w, r, err.Error())
 		return
 	}
@@ -82,7 +78,10 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 	note := body.ToDomain()
 	note.ID = noteID
 
-	updated, err := s.notes.UpdateNote(r.Context(), setID, note)
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
+
+	updated, err := s.notes.UpdateNote(r.Context(), user.ID, setID, note)
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -108,12 +107,10 @@ func (s *Server) handleDeleteNoteSet(w http.ResponseWriter, r *http.Request) {
 		problem.BadRequest(w, r, "invalid note set id")
 		return
 	}
-	author, err := s.notes.GetSetAuthor(r.Context(), setID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
 
-	if err := s.notes.DeleteNoteSet(r.Context(), setID); err != nil {
+	if err := s.notes.DeleteNoteSet(r.Context(), user.ID, setID); err != nil {
 		problem.From(w, r, err)
 		return
 	}
@@ -147,12 +144,10 @@ func (s *Server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.notes.GetSetAuthor(r.Context(), setID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
 
-	if err := s.notes.DeleteNote(r.Context(), setID, noteID); err != nil {
+	if err := s.notes.DeleteNote(r.Context(), user.ID, setID, noteID); err != nil {
 		problem.From(w, r, err)
 		return
 	}

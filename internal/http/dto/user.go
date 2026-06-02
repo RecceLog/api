@@ -15,18 +15,22 @@ type UserResponse struct {
 	ID          uuid.UUID `json:"id"`
 	DisplayName string    `json:"display_name"`
 	Description string    `json:"description,omitempty"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// AvatarURL is the canonical, always-present URL of the user's profile
+	// picture. It is derived from the id (not stored): the endpoint serves the
+	// custom avatar when one exists, otherwise the default image.
+	AvatarURL string    `json:"avatar_url"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// FromUser maps a domain user to its public response shape.
+// FromUser maps a domain user to its public response shape. The avatar URL is
+// computed from the id so the client never needs to know the storage layout.
 func FromUser(u domain.User) UserResponse {
 	return UserResponse{
 		ID:          u.ID,
 		DisplayName: u.DisplayName,
 		Description: u.Description,
-		AvatarURL:   u.AvatarURL,
+		AvatarURL:   "/v1/users/" + u.ID.String() + "/profile_pic",
 		CreatedAt:   u.CreatedAt,
 		UpdatedAt:   u.UpdatedAt,
 	}

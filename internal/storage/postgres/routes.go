@@ -322,7 +322,7 @@ ORDER BY path::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography A
 
 // ListNearby returns routes whose path is within radiusM meters of center.
 // Uses ST_DWithin for the filter and KNN (<->) for ordering by distance
-// ascending. Both terms hit the geography GIST index added in migration 00002.
+// ascending.
 func (r *Routes) ListNearby(ctx context.Context, center domain.Point, radiusM float64) ([]dto.RouteSummary, error) {
 	q := querier(ctx, r.pool)
 	rows, err := q.Query(ctx, listNearbySummariesSQL, center.Lng, center.Lat, radiusM)

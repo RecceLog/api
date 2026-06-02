@@ -572,6 +572,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
                         }
                     },
+                    "404": {
+                        "description": "Route not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
                     "422": {
                         "description": "Validation failed",
                         "schema": {
@@ -866,6 +872,51 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/users/{id}/profile_pic": {
+            "get": {
+                "description": "Returns the user's avatar image (custom if set, otherwise the default).",
+                "produces": [
+                    "image/png",
+                    "image/jpeg"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get a user's profile picture",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Image bytes"
+                    },
+                    "400": {
+                        "description": "Invalid user id",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1125,6 +1176,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar_url": {
+                    "description": "AvatarURL is the canonical, always-present URL of the user's profile\npicture. It is derived from the id (not stored): the endpoint serves the\ncustom avatar when one exists, otherwise the default image.",
                     "type": "string"
                 },
                 "created_at": {

@@ -1,0 +1,118 @@
+name: CI
+
+# Continuous integration for the RecceLog API. Runs the same gates used locally
+# — formatting, vet, build, race-enabled unit tests and a vulnerability scan —
+# plus the HTTP integration tests (a throwaway PostGIS container via
+# testcontainers) and a production Docker image build.
+#
+# It runs on every push to main AND on every pull request. To *require* it
+# before a PR can merge, add a branch-protection rule on `main` that marks the
+# "Lint, build & test", "Integration tests" and "Build production image" checks
+# as required (see the note at the bottom of the file).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test (race detector)
+        run: go test -race ./...
+
+      - name: Vulnerability scan (govulncheck)
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      # The GitHub-hosted ubuntu runner ships a working Docker daemon, so
+      # testcontainers can start the PostGIS container these tests need.
+      - name: Run integration tests
+        run: go test -tags=integration -count=1 ./test/e2e/...
+
+  docker:
+    name: Build production image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build prod image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          push: false
+          tags: reccelog-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ----------------------------------------------------------------------------
+# Make CI required before merging a PR (one-time repo setup, not done by this
+# file). After the first run so the check names exist, e.g. with the gh CLI:
+#
+#   gh api -X PUT repos/<owner>/<repo>/branches/main/protection \
+#     -F required_status_checks.strict=true \
+#     -f 'required_status_checks.contexts[]=Lint, build & test' \
+#     -f 'required_status_checks.contexts[]=Integration tests' \
+#     -f 'required_status_checks.contexts[]=Build production image' \
+#     -F enforce_admins=true \
+#     -F required_pull_request_reviews.required_approving_review_count=0 \
+#     -F restrictions=
+#
+# Or via the UI: Settings → Branches → Add branch protection rule for `main` →
+# "Require status checks to pass before merging" → select the three checks.
+# ----------------------------------------------------------------------------

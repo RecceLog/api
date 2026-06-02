@@ -82,6 +82,11 @@ services:
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8081/realms/reccelog}
       KEYCLOAK_DISCOVERY_URL: ${KEYCLOAK_DISCOVERY_URL:-http://keycloak:8080/realms/reccelog}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
+      API_ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      # Mandatory: used to reverse-geocode start/finish cities when omitted.
+      MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN}
+      # Directory holding the default avatar + per-user avatars.
+      AVATARS_DIR: ${AVATARS_DIR:-./static/avatars}
 
 volumes:
   reccelog-db-data:

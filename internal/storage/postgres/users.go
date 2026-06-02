@@ -24,7 +24,7 @@ func NewUsers(pool *pgxpool.Pool) *Users {
 
 const getUserByKeycloakSubSQL = `
 SELECT id, keycloak_sub, display_name,
-       COALESCE(description, ''), COALESCE(avatar_url, ''),
+       COALESCE(description, ''), COALESCE(avatar_content_type, ''),
        created_at, updated_at
 FROM users
 WHERE keycloak_sub = $1`
@@ -36,7 +36,7 @@ func (u *Users) GetByKeycloakSub(ctx context.Context, keycloakSub string) (domai
 	var out domain.User
 	err := q.QueryRow(ctx, getUserByKeycloakSubSQL, keycloakSub).Scan(
 		&out.ID, &out.KeycloakSub, &out.DisplayName,
-		&out.Description, &out.AvatarURL,
+		&out.Description, &out.AvatarContentType,
 		&out.CreatedAt, &out.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -50,7 +50,7 @@ func (u *Users) GetByKeycloakSub(ctx context.Context, keycloakSub string) (domai
 
 const getUserByIDSQL = `
 SELECT id, keycloak_sub, display_name,
-       COALESCE(description, ''), COALESCE(avatar_url, ''),
+       COALESCE(description, ''), COALESCE(avatar_content_type, ''),
        created_at, updated_at
 FROM users
 WHERE id = $1`
@@ -62,7 +62,7 @@ func (u *Users) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) 
 	var out domain.User
 	err := q.QueryRow(ctx, getUserByIDSQL, id).Scan(
 		&out.ID, &out.KeycloakSub, &out.DisplayName,
-		&out.Description, &out.AvatarURL,
+		&out.Description, &out.AvatarContentType,
 		&out.CreatedAt, &out.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -79,23 +79,24 @@ func (u *Users) GetByID(ctx context.Context, id uuid.UUID) (domain.User, error) 
 // no-op DO UPDATE (re-assigning keycloak_sub to itself) makes RETURNING yield
 // the row whether it was just inserted or already existed.
 const createUserSQL = `
-INSERT INTO users (keycloak_sub, display_name, description, avatar_url)
-VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''))
+INSERT INTO users (keycloak_sub, display_name, description)
+VALUES ($1, $2, NULLIF($3, ''))
 ON CONFLICT (keycloak_sub) DO UPDATE SET keycloak_sub = EXCLUDED.keycloak_sub
 RETURNING id, keycloak_sub, display_name,
-          COALESCE(description, ''), COALESCE(avatar_url, ''),
+          COALESCE(description, ''), COALESCE(avatar_content_type, ''),
           created_at, updated_at`
 
-// Create inserts a user (idempotent on keycloak_sub).
+// Create inserts a user (idempotent on keycloak_sub). A freshly provisioned
+// user has no custom avatar (avatar_content_type stays NULL).
 func (u *Users) Create(ctx context.Context, user domain.User) (domain.User, error) {
 	q := querier(ctx, u.pool)
 
 	var out domain.User
 	err := q.QueryRow(ctx, createUserSQL,
-		user.KeycloakSub, user.DisplayName, user.Description, user.AvatarURL,
+		user.KeycloakSub, user.DisplayName, user.Description,
 	).Scan(
 		&out.ID, &out.KeycloakSub, &out.DisplayName,
-		&out.Description, &out.AvatarURL,
+		&out.Description, &out.AvatarContentType,
 		&out.CreatedAt, &out.UpdatedAt,
 	)
 	if err != nil {

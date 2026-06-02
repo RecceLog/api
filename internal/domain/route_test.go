@@ -92,6 +92,51 @@ func TestRouteValidate(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects duplicate vehicles", func(t *testing.T) {
+		r := domain.Route{
+			Path:     validPath,
+			Vehicles: []domain.Vehicle{domain.VehicleCar, domain.VehicleCar},
+			NoteSets: []domain.NoteSet{validNoteSet},
+		}
+		err := r.Validate()
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		if !strings.Contains(err.Error(), "duplicate") {
+			t.Errorf("expected a duplicate-vehicle error, got: %v", err)
+		}
+	})
+
+	t.Run("rejects more than four vehicles", func(t *testing.T) {
+		r := domain.Route{
+			Path: validPath,
+			Vehicles: []domain.Vehicle{
+				domain.VehicleFoot, domain.VehicleBike,
+				domain.VehicleMotorcycle, domain.VehicleCar, domain.VehicleFoot,
+			},
+			NoteSets: []domain.NoteSet{validNoteSet},
+		}
+		err := r.Validate()
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		assertFields(t, err, []string{"vehicles", "vehicles[4]"})
+	})
+
+	t.Run("accepts the four distinct vehicles", func(t *testing.T) {
+		r := domain.Route{
+			Path: validPath,
+			Vehicles: []domain.Vehicle{
+				domain.VehicleFoot, domain.VehicleBike,
+				domain.VehicleMotorcycle, domain.VehicleCar,
+			},
+			NoteSets: []domain.NoteSet{validNoteSet},
+		}
+		if err := r.Validate(); err != nil {
+			t.Errorf("Validate() = %v, want nil", err)
+		}
+	})
+
 	t.Run("no note sets is valid (creation rule enforced at HTTP)", func(t *testing.T) {
 		r := domain.Route{
 			Path:     validPath,
@@ -122,6 +167,57 @@ func TestRouteValidate(t *testing.T) {
 		if !strings.Contains(err.Error(), "waypoints[1]") {
 			t.Errorf("expected error to reference waypoints[1], got: %v", err)
 		}
+	})
+
+	t.Run("rejects over-long text fields", func(t *testing.T) {
+		r := domain.Route{
+			Path:          validPath,
+			Vehicles:      []domain.Vehicle{domain.VehicleCar},
+			NoteSets:      []domain.NoteSet{validNoteSet},
+			Name:          strings.Repeat("a", 121),
+			Description:   strings.Repeat("b", 1001),
+			CoverPhotoURL: strings.Repeat("c", 2049),
+			StartCity:     strings.Repeat("d", 121),
+			FinishCity:    strings.Repeat("e", 121),
+		}
+		err := r.Validate()
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		assertFields(t, err, []string{"name", "description", "coverPhotoURL", "startCity", "finishCity"})
+	})
+
+	t.Run("text fields at the limit are valid", func(t *testing.T) {
+		r := domain.Route{
+			Path:          validPath,
+			Vehicles:      []domain.Vehicle{domain.VehicleCar},
+			NoteSets:      []domain.NoteSet{validNoteSet},
+			Name:          strings.Repeat("a", 120),
+			Description:   strings.Repeat("b", 1000),
+			CoverPhotoURL: strings.Repeat("c", 2048),
+			StartCity:     strings.Repeat("d", 120),
+			FinishCity:    strings.Repeat("e", 120),
+		}
+		if err := r.Validate(); err != nil {
+			t.Errorf("Validate() = %v, want nil", err)
+		}
+	})
+
+	t.Run("rejects a path with too many points", func(t *testing.T) {
+		path := make(domain.LineString, 5001)
+		for i := range path {
+			path[i] = domain.Point{Lng: 9.0, Lat: 45.0}
+		}
+		r := domain.Route{
+			Path:     path,
+			Vehicles: []domain.Vehicle{domain.VehicleCar},
+			NoteSets: []domain.NoteSet{validNoteSet},
+		}
+		err := r.Validate()
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		assertFields(t, err, []string{"path"})
 	})
 
 	t.Run("wraps invalid note set index", func(t *testing.T) {

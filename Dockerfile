@@ -21,5 +21,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 ### Prod: minimal runtime, no shell, non-root user
 FROM gcr.io/distroless/static-debian12:nonroot AS prod
 COPY --from=builder /bin/api /api
+# static assets (e.g. the default avatar served by /v1/users/{id}/profile_pic).
+# Working dir is /, so the default AVATARS_DIR "./static/avatars" resolves here.
+COPY --from=builder /app/static /static
 USER nonroot:nonroot
 ENTRYPOINT ["/api"]

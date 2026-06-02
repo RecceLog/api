@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -36,6 +37,12 @@ func (n *Notes) CreateNoteSet(ctx context.Context, ns domain.NoteSet) (domain.No
 		ns.RouteID, nullableUUID(ns.AuthorID), ns.Name,
 	).Scan(&ns.ID, &ns.CreatedAt, &ns.UpdatedAt)
 	if err != nil {
+		// A FK violation on route_id means the target route does not exist:
+		// translate to ErrNotFound so the handler returns 404 rather than 500.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation
+			return domain.NoteSet{}, domain.ErrNotFound
+		}
 		return domain.NoteSet{}, fmt.Errorf("insert note_set: %w", err)
 	}
 	return ns, nil
@@ -94,6 +101,9 @@ func (n *Notes) AddNotes(ctx context.Context, setID uuid.UUID, notes []domain.No
 	if _, err := q.Exec(ctx, addNotesSQL,
 		setID, ids, lngs, lats, orders, types, severities, directions, descriptions,
 	); err != nil {
+		if ve := noteCheckViolation(err); ve != nil {
+			return nil, ve
+		}
 		return nil, fmt.Errorf("insert notes: %w", err)
 	}
 	return notes, nil
@@ -297,6 +307,9 @@ func (n *Notes) UpdateNote(ctx context.Context, setID uuid.UUID, note domain.Not
 		return domain.Note{}, domain.ErrNotFound
 	}
 	if err != nil {
+		if ve := noteCheckViolation(err); ve != nil {
+			return domain.Note{}, ve
+		}
 		return domain.Note{}, fmt.Errorf("update note: %w", err)
 	}
 	return note, nil
@@ -333,3 +346,15 @@ func (n *Notes) DeleteNote(ctx context.Context, setID, noteID uuid.UUID) error {
 	return nil
 }
 
+// noteCheckViolation maps a Postgres check_violation (23514) — raised by the
+// "note within 50 m of the route path" trigger — to a domain validation error
+// (→ 422). Returns nil for any other error. Other note CHECKs (severity, the
+// type/direction rules) are caught earlier by domain validation, so a 23514
+// reaching here is the proximity rule.
+func noteCheckViolation(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23514" { // check_violation
+		return &domain.ValidationError{Field: "position", Message: pgErr.Message}
+	}
+	return nil
+}

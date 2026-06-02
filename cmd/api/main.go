@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/RecceLog/api/internal/app"
 	"github.com/RecceLog/api/internal/auth"
 	"github.com/RecceLog/api/internal/config"
 	apihttp "github.com/RecceLog/api/internal/http"
@@ -63,18 +64,19 @@ func run() error {
 	// per-aggregate repos + services, sharing one reentrant Transactor
 	tx := postgres.NewTransactor(pool)
 
-	// Mapbox geocoder: optional — nil when no token is configured, which
-	// disables start/finish city enrichment without breaking anything.
-	var geocoder routes.Geocoder
-	if cfg.Mapbox.AccessToken != "" {
-		geocoder = mapbox.NewHTTPGeocoder(cfg.Mapbox.AccessToken)
-	} else {
-		slog.Warn("MAPBOX_ACCESS_TOKEN not set — start/finish city auto-fill disabled")
-	}
+	// Mapbox geocoder: mandatory (the config rejects a missing token), used to
+	// fill start/finish city names when the client omits them.
+	geocoder := mapbox.NewHTTPGeocoder(cfg.Mapbox.AccessToken)
 
 	routesSvc := routes.NewService(postgres.NewRoutes(pool), tx, geocoder)
 	notesSvc := notes.NewService(postgres.NewNotes(pool), tx)
 	usersSvc := users.NewService(postgres.NewUsers(pool))
+
+	// application use-case layer: orchestrates cross-aggregate flows and owns
+	// authorization, keeping the HTTP handlers as thin transport adapters.
+	routeApp := app.NewRouteService(routesSvc, notesSvc, tx)
+	noteApp := app.NewNoteService(notesSvc)
+	userApp := app.NewUserService(usersSvc)
 
 	// auth: validate Keycloak tokens (JWKS init is lazy, so the API boots even
 	// if Keycloak is not yet reachable) and provision local users just-in-time.
@@ -84,9 +86,10 @@ func run() error {
 	// server configuration
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
-		Handler:      apihttp.NewServer(pool, tx, routesSvc, notesSvc, usersSvc, authMW, cfg.Server.AllowedOrigins).Router(),
+		Handler:      apihttp.NewServer(pool, routeApp, noteApp, userApp, authMW, cfg.Server.AllowedOrigins, cfg.Server.RateLimitPerMin, cfg.Server.AvatarsDir).Router(),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
 	// start listening in a goroutine that can write in the error channel `serverErr`

@@ -10,50 +10,53 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
+	"github.com/RecceLog/api/internal/app"
 	"github.com/RecceLog/api/internal/auth"
-	"github.com/RecceLog/api/internal/notes"
-	"github.com/RecceLog/api/internal/routes"
-	"github.com/RecceLog/api/internal/storage/postgres"
-	"github.com/RecceLog/api/internal/users"
 )
 
-// Server is the HTTP boundary. It composes per-aggregate services and uses
-// the Transactor directly to wrap cross-aggregate writes (e.g. POST /routes
-// persists a route + a note_set in a single transaction).
+// Server is the HTTP boundary. It is a thin transport adapter over the
+// application use-case layer (internal/app): handlers decode requests, extract
+// the caller identity, call one use case and map the result to HTTP. All
+// orchestration, transactions and authorization live in the app layer.
 type Server struct {
-	pool           *pgxpool.Pool
-	tx             *postgres.Transactor
-	routes         *routes.Service
-	notes          *notes.Service
-	users          *users.Service
-	auth           *auth.Middleware
-	allowedOrigins []string
+	pool            *pgxpool.Pool
+	routes          *app.RouteService
+	notes           *app.NoteService
+	users           *app.UserService
+	auth            *auth.Middleware
+	allowedOrigins  []string
+	rateLimitPerMin int
+	avatarsDir      string
 }
 
 // NewServer wires the Server. The pool is kept for the /health check; all
-// real persistence flows through routes/notes services. auth protects the
+// real work flows through the app use-case services. auth protects the
 // mutating endpoints; reads stay public. allowedOrigins is the CORS origin
-// pattern list (e.g. "http://localhost:*").
+// pattern list (e.g. "http://localhost:*"). rateLimitPerMin is the per-IP
+// request budget per minute (0 disables rate limiting).
 func NewServer(
 	pool *pgxpool.Pool,
-	tx *postgres.Transactor,
-	routesSvc *routes.Service,
-	notesSvc *notes.Service,
-	usersSvc *users.Service,
+	routeApp *app.RouteService,
+	noteApp *app.NoteService,
+	userApp *app.UserService,
 	authMW *auth.Middleware,
 	allowedOrigins []string,
+	rateLimitPerMin int,
+	avatarsDir string,
 ) *Server {
 	return &Server{
-		pool:           pool,
-		tx:             tx,
-		routes:         routesSvc,
-		notes:          notesSvc,
-		users:          usersSvc,
-		auth:           authMW,
-		allowedOrigins: allowedOrigins,
+		pool:            pool,
+		routes:          routeApp,
+		notes:           noteApp,
+		users:           userApp,
+		auth:            authMW,
+		allowedOrigins:  allowedOrigins,
+		rateLimitPerMin: rateLimitPerMin,
+		avatarsDir:      avatarsDir,
 	}
 }
 
@@ -88,6 +91,14 @@ func (s *Server) Router() http.Handler {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	// Per-IP rate limiting (0 disables it). Placed before the handlers so an
+	// abusive client is throttled regardless of the endpoint hit. The client IP
+	// is the one resolved by the ClientIP middleware above.
+	if s.rateLimitPerMin > 0 {
+		r.Use(httprate.LimitByIP(s.rateLimitPerMin, time.Minute))
+	}
+
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	r.Get("/health", s.handleHealth)
@@ -114,6 +125,8 @@ func (s *Server) Router() http.Handler {
 		r.Route("/users", func(r chi.Router) {
 			// public read of a profile
 			r.Get("/{id}", s.handleGetUser)
+			// public: the user's profile picture (custom or default)
+			r.Get("/{id}/profile_pic", s.handleGetProfilePic)
 
 			// authenticated: the caller's own profile (static path wins over {id})
 			r.Group(func(r chi.Router) {

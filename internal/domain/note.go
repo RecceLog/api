@@ -49,6 +49,7 @@ func (d DirectionType) Valid() bool {
 
 const (
 	noteDescriptionMaxLen = 255
+	noteSetNameMaxLen     = 120
 	minIndicationSeverity = 1
 	maxIndicationSeverity = 7
 )
@@ -69,6 +70,9 @@ type NoteSet struct {
 // Validate verifies that every data inside a note set, including each note, is valid
 func (s NoteSet) Validate() error {
 	var errs []error
+	if utf8.RuneCountInString(s.Name) > noteSetNameMaxLen {
+		errs = append(errs, invalid("name", "max %d characters", noteSetNameMaxLen))
+	}
 	if len(s.Notes) == 0 {
 		errs = append(errs, invalid("notes", "specify at least one note"))
 	}
@@ -122,6 +126,11 @@ func (n Note) Validate() error {
 			errs = append(errs, invalid("direction", "mandatory for indication"))
 		case !n.Direction.Valid():
 			errs = append(errs, invalid("direction", "not valid: %q", n.Direction))
+		}
+		// severity is mandatory for an indication whose direction is not
+		// STRAIGHT (a straight indication may omit it).
+		if n.Direction.Valid() && n.Direction != DirectionStraight && n.Severity == nil {
+			errs = append(errs, invalid("severity", "mandatory for a non-straight indication"))
 		}
 	case NoteWarning:
 		if n.Direction != "" && !n.Direction.Valid() {

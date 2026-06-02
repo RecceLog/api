@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -13,12 +12,12 @@ import (
 	"github.com/RecceLog/api/internal/domain"
 	"github.com/RecceLog/api/internal/http/dto"
 	"github.com/RecceLog/api/internal/http/problem"
-	routesdto "github.com/RecceLog/api/internal/routes/dto"
 )
 
-// handleCreateRoute persists a route together with an initial note set
-// inside a single transaction opened here at the boundary. If anything fails
-// between the route insert and the note_set insert, both roll back.
+// handleCreateRoute persists a route together with an initial note set. The
+// handler only decodes the request, extracts the caller and writes the
+// response; the app layer enriches, opens the transaction and composes the two
+// aggregates atomically.
 //
 // @Summary     Create a route with an initial note set
 // @Description Atomically inserts the route, its waypoints and the first note set (with its notes). Queries are run in a transaction
@@ -36,56 +35,26 @@ import (
 // @Router      /v1/routes [post]
 func (s *Server) handleCreateRoute(w http.ResponseWriter, r *http.Request) {
 	var body dto.CreateRouteRequest
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		problem.BadRequest(w, r, err.Error())
-		return
-	}
-	if body.NoteSet == nil {
-		problem.From(w, r, &domain.ValidationError{
-			Field:   "note_set",
-			Message: "must include at least one note set when creating a route",
-		})
 		return
 	}
 
 	// protected route: the auth middleware guarantees a user in context.
 	user, _ := auth.UserFrom(r.Context())
 
-	route := body.Route.ToDomain()
-	route.AuthorID = user.ID
-	ns := body.NoteSet.ToDomain()
-	ns.AuthorID = user.ID
-	noteSet := &ns
+	var noteSet *domain.NoteSet
+	if body.NoteSet != nil {
+		ns := body.NoteSet.ToDomain()
+		noteSet = &ns
+	}
 
-	var (
-		savedRoute   domain.Route
-		savedNoteSet domain.NoteSet
-	)
-	err := s.tx.InTx(r.Context(), func(ctx context.Context) error {
-		var err error
-		savedRoute, err = s.routes.Create(ctx, route)
-		if err != nil {
-			return err
-		}
-		if noteSet != nil {
-			noteSet.RouteID = savedRoute.ID
-			savedNoteSet, err = s.notes.CreateNoteSet(ctx, *noteSet)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	route, noteSets, err := s.routes.Create(r.Context(), user.ID, body.Route.ToDomain(), noteSet)
 	if err != nil {
 		problem.From(w, r, err)
 		return
 	}
-
-	var noteSets []domain.NoteSet
-	if noteSet != nil {
-		noteSets = []domain.NoteSet{savedNoteSet}
-	}
-	writeJSON(w, http.StatusCreated, dto.FromRouteDetail(savedRoute, noteSets))
+	writeJSON(w, http.StatusCreated, dto.FromRouteDetail(route, noteSets))
 }
 
 // handleListRoutes returns every route as a lightweight summary.
@@ -107,8 +76,7 @@ func (s *Server) handleListRoutes(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetRoute returns a route with its waypoints and every note set
-// (notes pre-loaded). The handler composes the two services — each one stays
-// aggregate-scoped.
+// (notes pre-loaded). The app layer composes the two aggregates.
 //
 // @Summary     Get a route with its note sets
 // @Description Composes the route (with waypoints) and all its note sets (with notes) in two queries.
@@ -127,12 +95,7 @@ func (s *Server) handleGetRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	route, err := s.routes.GetDetailsByID(r.Context(), id)
-	if err != nil {
-		problem.From(w, r, err)
-		return
-	}
-	noteSets, err := s.notes.ListByRouteID(r.Context(), id)
+	route, noteSets, err := s.routes.GetDetail(r.Context(), id)
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -177,12 +140,7 @@ func (s *Server) handleListRoutesInRange(w http.ResponseWriter, r *http.Request)
 	center := domain.Point{Lng: lng, Lat: lat}
 	vehicles := parseVehicles(r.URL.Query()["vehicle"])
 
-	var summaries []routesdto.RouteSummary
-	if len(vehicles) > 0 {
-		summaries, err = s.routes.ListNearbyByVehicles(r.Context(), center, radiusM, vehicles)
-	} else {
-		summaries, err = s.routes.ListNearby(r.Context(), center, radiusM)
-	}
+	summaries, err := s.routes.ListInRange(r.Context(), center, radiusM, vehicles)
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -191,7 +149,7 @@ func (s *Server) handleListRoutesInRange(w http.ResponseWriter, r *http.Request)
 }
 
 // parseVehicles maps the raw `vehicle` query values to domain vehicles. It does
-// not validate membership — the service rejects unknown values so the handler
+// not validate membership — the app layer rejects unknown values so the handler
 // stays a thin mapping layer.
 func parseVehicles(raw []string) []domain.Vehicle {
 	if len(raw) == 0 {
@@ -205,8 +163,8 @@ func parseVehicles(raw []string) []domain.Vehicle {
 }
 
 // handleAddNoteSet appends a note set (with its notes) to an existing route.
-// Single-aggregate write — the notes service's own Transactor handles
-// atomicity between note_set + notes.
+// Any authenticated user may add a note set to any route, so there is no
+// ownership check — the app layer attributes the note set to the caller.
 //
 // @Summary     Append a note set to a route
 // @Description Inserts a new note set (and its notes) for the given route in a single transaction.
@@ -217,6 +175,7 @@ func parseVehicles(raw []string) []domain.Vehicle {
 // @Param       body  body      dto.NoteSetInput    true  "Note set payload"
 // @Success     201   {object}  dto.NoteSetResponse
 // @Failure     400   {object}  problem.Problem     "Invalid route id or malformed JSON"
+// @Failure     404   {object}  problem.Problem     "Route not found"
 // @Failure     422   {object}  problem.Problem     "Validation failed"
 // @Failure     500   {object}  problem.Problem
 // @Router      /v1/routes/{id}/notes [post]
@@ -227,7 +186,7 @@ func (s *Server) handleAddNoteSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body dto.NoteSetInput
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		problem.BadRequest(w, r, err.Error())
 		return
 	}
@@ -235,11 +194,7 @@ func (s *Server) handleAddNoteSet(w http.ResponseWriter, r *http.Request) {
 	// protected route: the auth middleware guarantees a user in context.
 	user, _ := auth.UserFrom(r.Context())
 
-	ns := body.ToDomain()
-	ns.RouteID = routeID
-	ns.AuthorID = user.ID
-
-	saved, err := s.notes.CreateNoteSet(r.Context(), ns)
+	saved, err := s.routes.AddNoteSet(r.Context(), user.ID, routeID, body.ToDomain())
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -270,18 +225,16 @@ func (s *Server) handleAddWaypoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.routes.GetAuthor(r.Context(), routeID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
-
 	var body dto.WaypointIn
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		problem.BadRequest(w, r, err.Error())
 		return
 	}
 
-	saved, err := s.routes.AddWaypoint(r.Context(), routeID, body.ToDomain())
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
+
+	saved, err := s.routes.AddWaypoint(r.Context(), user.ID, routeID, body.ToDomain())
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -325,13 +278,8 @@ func (s *Server) handleUpdateWaypoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.routes.GetAuthor(r.Context(), routeID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
-
 	var body dto.WaypointIn
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		problem.BadRequest(w, r, err.Error())
 		return
 	}
@@ -339,7 +287,10 @@ func (s *Server) handleUpdateWaypoint(w http.ResponseWriter, r *http.Request) {
 	wp := body.ToDomain()
 	wp.ID = waypointID
 
-	saved, err := s.routes.UpdateWaypoint(r.Context(), routeID, wp)
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
+
+	saved, err := s.routes.UpdateWaypoint(r.Context(), user.ID, routeID, wp)
 	if err != nil {
 		problem.From(w, r, err)
 		return
@@ -379,12 +330,10 @@ func (s *Server) handleDeleteWaypoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.routes.GetAuthor(r.Context(), routeID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
 
-	if err := s.routes.DeleteWaypoint(r.Context(), routeID, waypointID); err != nil {
+	if err := s.routes.DeleteWaypoint(r.Context(), user.ID, routeID, waypointID); err != nil {
 		problem.From(w, r, err)
 		return
 	}
@@ -411,40 +360,28 @@ func (s *Server) handleDeleteRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	author, err := s.routes.GetAuthor(r.Context(), routeID)
-	if !requireOwner(w, r, author, err) {
-		return
-	}
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
 
-	if err := s.routes.Delete(r.Context(), routeID); err != nil {
+	if err := s.routes.Delete(r.Context(), user.ID, routeID); err != nil {
 		problem.From(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// requireOwner authorizes a mutation: the authenticated caller must be the
-// author of the resource. lookupErr is the result of fetching the resource's
-// author (e.g. domain.ErrNotFound when it is absent). It writes the matching
-// problem (404 when the resource is missing, 403 when the caller is not the
-// author) and returns false when the handler must stop. A NULL author
-// (uuid.Nil, e.g. after the author was deleted) is owned by nobody → 403.
-func requireOwner(w http.ResponseWriter, r *http.Request, author uuid.UUID, lookupErr error) bool {
-	if lookupErr != nil {
-		problem.From(w, r, lookupErr)
-		return false
-	}
-	user, ok := auth.UserFrom(r.Context())
-	if !ok || author == uuid.Nil || author != user.ID {
-		problem.From(w, r, domain.ErrForbidden)
-		return false
-	}
-	return true
-}
+// maxBodyBytes caps the size of a decoded request body. It is generous enough
+// for a route with a very long path (thousands of points) yet small enough to
+// stop an authenticated client from exhausting memory with a multi-megabyte
+// payload.
+const maxBodyBytes = 4 << 20 // 4 MiB
 
-// decodeJSON applies the standard guards: reject unknown fields so clients
-// can't silently send mis-named keys.
-func decodeJSON(r *http.Request, v any) error {
+// decodeJSON applies the standard guards: it caps the body size with
+// http.MaxBytesReader (so an oversized payload is rejected instead of being
+// read into memory) and rejects unknown fields so clients can't silently send
+// mis-named keys.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	return dec.Decode(v)

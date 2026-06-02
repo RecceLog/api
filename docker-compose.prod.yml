@@ -3,6 +3,25 @@ services:
     # no exposed port: DB is reachable only from the internal network
     restart: unless-stopped
 
+  # Keycloak production profile. Overrides the dev defaults from the base
+  # compose: runs `start` (not `start-dev`), refuses to boot without a real
+  # admin credential and a public HTTPS hostname, and trusts the reverse proxy
+  # for TLS termination. The `:?` syntax makes the deploy fail fast if a
+  # required secret is missing (no silent admin:admin fallback).
+  keycloak:
+    command: [ "start", "--import-realm" ]
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN:?set a real Keycloak admin username}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?set a strong Keycloak admin password}
+      # Public HTTPS URL of the IdP, e.g. https://auth.example.com. Drives the
+      # token `iss`; KEYCLOAK_ISSUER_URL below must match it.
+      KC_HOSTNAME: ${KC_HOSTNAME:?set the public https hostname (https://...)}
+      # TLS is terminated at the reverse proxy; Keycloak speaks plain HTTP
+      # behind it but must honour X-Forwarded-* headers to build correct URLs.
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+
   api:
     build:
       context: .
@@ -10,6 +29,9 @@ services:
     restart: unless-stopped
     environment:
       LOG_LEVEL: info
+      # Verify the JWT `aud` claim in production: tokens must be minted for this
+      # API (the realm adds the `reccelog-api` audience via a protocol mapper).
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-reccelog-api}
     deploy:
       resources:
         limits:

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/RecceLog/api/internal/domain"
 	"github.com/RecceLog/api/internal/routes"
 )
@@ -27,14 +25,6 @@ func TestEnrichCities(t *testing.T) {
 	milanLat, milanLng := 45.46, 9.19
 	romeLat, romeLng := 41.90, 12.49
 
-	makeRepo := func() *fakeRepo {
-		return &fakeRepo{
-			createFn: func(_ context.Context, r domain.Route) (domain.Route, error) {
-				r.ID = uuid.New()
-				return r, nil
-			},
-		}
-	}
 	makePath := func() domain.LineString {
 		return domain.LineString{
 			{Lat: milanLat, Lng: milanLng},
@@ -47,59 +37,68 @@ func TestEnrichCities(t *testing.T) {
 			fmt.Sprintf("%.2f,%.2f", milanLat, milanLng): "Milan",
 			fmt.Sprintf("%.2f,%.2f", romeLat, romeLng):   "Rome",
 		}}
-		repo := makeRepo()
-		svc := routes.NewService(repo, inlineTx{}, geo)
+		svc := routes.NewService(&fakeRepo{}, inlineTx{}, geo)
 
-		got, err := svc.Create(context.Background(), domain.Route{
+		r := domain.Route{
 			Path:     makePath(),
 			Vehicles: []domain.Vehicle{domain.VehicleCar},
-		})
-		if err != nil {
-			t.Fatalf("Create() err = %v, want nil", err)
 		}
-		if got.StartCity != "Milan" {
-			t.Errorf("StartCity = %q, want Milan", got.StartCity)
+		svc.EnrichCities(context.Background(), &r)
+
+		if r.StartCity != "Milan" {
+			t.Errorf("StartCity = %q, want Milan", r.StartCity)
 		}
-		if got.FinishCity != "Rome" {
-			t.Errorf("FinishCity = %q, want Rome", got.FinishCity)
+		if r.FinishCity != "Rome" {
+			t.Errorf("FinishCity = %q, want Rome", r.FinishCity)
 		}
 	})
 
 	t.Run("does not overwrite cities the caller already supplied", func(t *testing.T) {
 		geo := &fakeGeocoder{responses: map[string]string{}}
-		repo := makeRepo()
-		svc := routes.NewService(repo, inlineTx{}, geo)
+		svc := routes.NewService(&fakeRepo{}, inlineTx{}, geo)
 
-		got, err := svc.Create(context.Background(), domain.Route{
+		r := domain.Route{
 			Path:       makePath(),
 			Vehicles:   []domain.Vehicle{domain.VehicleCar},
 			StartCity:  "Torino",
 			FinishCity: "Napoli",
-		})
-		if err != nil {
-			t.Fatalf("Create() err = %v, want nil", err)
 		}
-		if got.StartCity != "Torino" || got.FinishCity != "Napoli" {
-			t.Errorf("cities overwritten: start=%q finish=%q", got.StartCity, got.FinishCity)
+		svc.EnrichCities(context.Background(), &r)
+
+		if r.StartCity != "Torino" || r.FinishCity != "Napoli" {
+			t.Errorf("cities overwritten: start=%q finish=%q", r.StartCity, r.FinishCity)
 		}
 		if geo.calls != 0 {
 			t.Errorf("geocoder called %d times, want 0", geo.calls)
 		}
 	})
 
-	t.Run("nil geocoder leaves cities empty without error", func(t *testing.T) {
-		repo := makeRepo()
-		svc := routes.NewService(repo, inlineTx{}, nil)
+	t.Run("falls back to N/A when the geocoder returns nothing", func(t *testing.T) {
+		geo := &fakeGeocoder{responses: map[string]string{}} // every lookup → ""
+		svc := routes.NewService(&fakeRepo{}, inlineTx{}, geo)
 
-		got, err := svc.Create(context.Background(), domain.Route{
+		r := domain.Route{
 			Path:     makePath(),
 			Vehicles: []domain.Vehicle{domain.VehicleCar},
-		})
-		if err != nil {
-			t.Fatalf("Create() err = %v, want nil", err)
 		}
-		if got.StartCity != "" || got.FinishCity != "" {
-			t.Errorf("expected empty cities, got start=%q finish=%q", got.StartCity, got.FinishCity)
+		svc.EnrichCities(context.Background(), &r)
+
+		if r.StartCity != "N/A" || r.FinishCity != "N/A" {
+			t.Errorf("expected N/A placeholders, got start=%q finish=%q", r.StartCity, r.FinishCity)
+		}
+	})
+
+	t.Run("nil geocoder fills the N/A placeholder", func(t *testing.T) {
+		svc := routes.NewService(&fakeRepo{}, inlineTx{}, nil)
+
+		r := domain.Route{
+			Path:     makePath(),
+			Vehicles: []domain.Vehicle{domain.VehicleCar},
+		}
+		svc.EnrichCities(context.Background(), &r)
+
+		if r.StartCity != "N/A" || r.FinishCity != "N/A" {
+			t.Errorf("expected N/A placeholders, got start=%q finish=%q", r.StartCity, r.FinishCity)
 		}
 	})
 }

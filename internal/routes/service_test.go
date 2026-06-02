@@ -26,17 +26,17 @@ func (inlineTx) InTx(ctx context.Context, fn func(context.Context) error) error 
 // Each method delegates to a func field so individual tests program the
 // behavior they need without dragging in a mocking library.
 type fakeRepo struct {
-	createFn              func(ctx context.Context, r domain.Route) (domain.Route, error)
-	addWaypointsFn        func(ctx context.Context, routeID uuid.UUID, wps []domain.Waypoint) ([]domain.Waypoint, error)
-	addWaypointFn         func(ctx context.Context, routeID uuid.UUID, w domain.Waypoint) (domain.Waypoint, error)
-	updateWaypointFn      func(ctx context.Context, routeID uuid.UUID, w domain.Waypoint) (domain.Waypoint, error)
-	deleteWaypointFn      func(ctx context.Context, routeID, waypointID uuid.UUID) error
-	deleteFn              func(ctx context.Context, id uuid.UUID) error
-	getDetailsByIDFn      func(ctx context.Context, id uuid.UUID) (domain.Route, error)
-	getAuthorFn           func(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
-	listFn                func(ctx context.Context) ([]dto.RouteSummary, error)
-	listNearbyFn          func(ctx context.Context, center domain.Point, radiusM float64) ([]dto.RouteSummary, error)
-	listNearbyByVehFn     func(ctx context.Context, center domain.Point, radiusM float64, vehicles []domain.Vehicle) ([]dto.RouteSummary, error)
+	createFn          func(ctx context.Context, r domain.Route) (domain.Route, error)
+	addWaypointsFn    func(ctx context.Context, routeID uuid.UUID, wps []domain.Waypoint) ([]domain.Waypoint, error)
+	addWaypointFn     func(ctx context.Context, routeID uuid.UUID, w domain.Waypoint) (domain.Waypoint, error)
+	updateWaypointFn  func(ctx context.Context, routeID uuid.UUID, w domain.Waypoint) (domain.Waypoint, error)
+	deleteWaypointFn  func(ctx context.Context, routeID, waypointID uuid.UUID) error
+	deleteFn          func(ctx context.Context, id uuid.UUID) error
+	getDetailsByIDFn  func(ctx context.Context, id uuid.UUID) (domain.Route, error)
+	getAuthorFn       func(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	listFn            func(ctx context.Context) ([]dto.RouteSummary, error)
+	listNearbyFn      func(ctx context.Context, center domain.Point, radiusM float64) ([]dto.RouteSummary, error)
+	listNearbyByVehFn func(ctx context.Context, center domain.Point, radiusM float64, vehicles []domain.Vehicle) ([]dto.RouteSummary, error)
 
 	createCalls         int
 	addWaypointsCalls   int

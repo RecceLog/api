@@ -21,13 +21,16 @@ const (
 //   - a Keycloak subject
 //   - a display name
 type User struct {
-	ID           uuid.UUID
-	KeycloakSub  string
-	DisplayName  string
-	Description  string
-	AvatarURL    string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID          uuid.UUID
+	KeycloakSub string
+	DisplayName string
+	Description string
+	// AvatarContentType is the MIME type of the user's custom avatar file,
+	// empty when the user has no custom avatar (the profile-picture endpoint
+	// then serves the default image).
+	AvatarContentType string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // Validate checks that user values respect the domain invariants.

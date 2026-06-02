@@ -4,8 +4,25 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
+)
+
+// Field caps for a Route. They mirror the DB constraints in migration
+// 00001_base_schema.sql.
+const (
+	routeNameMaxLen     = 120
+	routeDescMaxLen     = 1000
+	routeCoverURLMaxLen = 2048
+	routeCityMaxLen     = 120
+	// routePathMaxPoints caps the number of vertices of a path. At ~53 pts/km a
+	// 30 km route is ~1 600 points, so 5 000 leaves ample headroom for denser or
+	// longer routes while stopping a payload from carrying millions of points.
+	routePathMaxPoints = 5_000
+	// maxVehicles is the number of distinct vehicle types — a route cannot list
+	// more than this, and it cannot repeat one.
+	maxVehicles = 4
 )
 
 // Vehicle represents how a Route can be taken.
@@ -64,24 +81,45 @@ func (r Route) Validate() error {
 	if !r.Path.Valid() {
 		errs = append(errs, invalid("path", "at least two valid coordinates"))
 	}
+	if len(r.Path) > routePathMaxPoints {
+		errs = append(errs, invalid("path", "max %d points", routePathMaxPoints))
+	}
+	if utf8.RuneCountInString(r.Name) > routeNameMaxLen {
+		errs = append(errs, invalid("name", "max %d characters", routeNameMaxLen))
+	}
+	if utf8.RuneCountInString(r.Description) > routeDescMaxLen {
+		errs = append(errs, invalid("description", "max %d characters", routeDescMaxLen))
+	}
+	if utf8.RuneCountInString(r.CoverPhotoURL) > routeCoverURLMaxLen {
+		errs = append(errs, invalid("coverPhotoURL", "max %d characters", routeCoverURLMaxLen))
+	}
+	if utf8.RuneCountInString(r.StartCity) > routeCityMaxLen {
+		errs = append(errs, invalid("startCity", "max %d characters", routeCityMaxLen))
+	}
+	if utf8.RuneCountInString(r.FinishCity) > routeCityMaxLen {
+		errs = append(errs, invalid("finishCity", "max %d characters", routeCityMaxLen))
+	}
 	if len(r.Vehicles) == 0 {
 		errs = append(errs, invalid("vehicles", "specify at least one valid vehicle"))
 	}
+	if len(r.Vehicles) > maxVehicles {
+		errs = append(errs, invalid("vehicles", "at most %d vehicles allowed", maxVehicles))
+	}
+	seen := make(map[Vehicle]struct{}, len(r.Vehicles))
 	for i, v := range r.Vehicles {
 		if !v.Valid() {
 			errs = append(errs, invalid(fmt.Sprintf("vehicles[%d]", i), "vehicle not valid: "+string(v)))
 		}
+		if _, dup := seen[v]; dup {
+			errs = append(errs, invalid(fmt.Sprintf("vehicles[%d]", i), "duplicate vehicle: "+string(v)))
+		}
+		seen[v] = struct{}{}
 	}
 	for i, wp := range r.Waypoints {
 		if err := wp.Validate(); err != nil {
 			errs = append(errs, wrapIndex("waypoints", i, err))
 		}
 	}
-	// NOTE: "must have at least one note set" is a creation-time rule
-	// enforced at the HTTP boundary (POST /v1/routes requires note_set in
-	// the body). It is NOT a structural invariant of the entity — a route
-	// loaded from the DB has empty NoteSets until the notes service is
-	// queried, and that state must remain valid.
 	for i, ns := range r.NoteSets {
 		if err := ns.Validate(); err != nil {
 			errs = append(errs, wrapIndex("noteSets", i, err))

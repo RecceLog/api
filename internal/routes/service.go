@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -45,11 +46,13 @@ func NewService(repo Repository, tx Transactor, geocoder Geocoder) *Service {
 // carries a tx (because the HTTP handler is composing a cross-aggregate
 // write), InTx joins it instead of starting a new one.
 //
+// Start/finish city enrichment is NOT done here: callers must invoke
+// EnrichCities before opening the transaction so the Mapbox HTTP call never
+// holds a pooled DB connection.
+//
 // Returns the stored route with server-assigned fields populated.
 // On invariant violation returns an error that wraps domain.ErrValidation.
 func (s *Service) Create(ctx context.Context, r domain.Route) (domain.Route, error) {
-	s.enrichCities(ctx, &r)
-
 	if err := r.Validate(); err != nil {
 		return domain.Route{}, err
 	}
@@ -176,46 +179,54 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
-// enrichCities fills StartCity / FinishCity from the route's first and last
-// path point when the caller left them empty. Both lookups run concurrently;
-// errors are silently ignored so a Mapbox outage never blocks route creation.
-// No-op when the geocoder is nil or the path has fewer than two points.
-func (s *Service) enrichCities(ctx context.Context, r *domain.Route) {
-	if s.geocoder == nil || len(r.Path) < 2 {
+// placeholderCity is stored when a city is missing from the request and reverse
+// geocoding can't resolve it (Mapbox error, or no place at those coordinates),
+// so the NOT NULL start_city / finish_city columns are always satisfied.
+const placeholderCity = "N/A"
+
+// EnrichCities fills StartCity / FinishCity from the route's first and last
+// path point when the caller left them empty. The two lookups run concurrently.
+// A city the caller already supplied is left untouched; for one that is missing,
+// the resolved name is used, falling back to placeholderCity when the geocoder
+// is unavailable or returns nothing — so both cities are always non-empty for a
+// path with at least two points.
+//
+// It must be called BEFORE opening a transaction (the HTTP boundary does so for
+// POST /routes) so the Mapbox HTTP round-trip never pins a pooled DB connection.
+func (s *Service) EnrichCities(ctx context.Context, r *domain.Route) {
+	if len(r.Path) < 2 {
 		return
 	}
 
-	type result struct {
-		name string
-	}
-
-	startCh := make(chan result, 1)
-	finishCh := make(chan result, 1)
-
+	var wg sync.WaitGroup
 	if r.StartCity == "" {
 		p := r.Path[0]
+		wg.Add(1)
 		go func() {
-			name, _ := s.geocoder.ReverseGeocode(ctx, p.Lat, p.Lng)
-			startCh <- result{name}
+			defer wg.Done()
+			r.StartCity = s.cityName(ctx, p)
 		}()
-	} else {
-		startCh <- result{r.StartCity}
 	}
-
 	if r.FinishCity == "" {
 		p := r.Path[len(r.Path)-1]
+		wg.Add(1)
 		go func() {
-			name, _ := s.geocoder.ReverseGeocode(ctx, p.Lat, p.Lng)
-			finishCh <- result{name}
+			defer wg.Done()
+			r.FinishCity = s.cityName(ctx, p)
 		}()
-	} else {
-		finishCh <- result{r.FinishCity}
 	}
+	wg.Wait()
+}
 
-	if sr := <-startCh; sr.name != "" {
-		r.StartCity = sr.name
+// cityName reverse-geocodes a point to a place name, returning placeholderCity
+// when the geocoder is unconfigured, errors, or resolves to nothing.
+func (s *Service) cityName(ctx context.Context, p domain.Point) string {
+	if s.geocoder == nil {
+		return placeholderCity
 	}
-	if fr := <-finishCh; fr.name != "" {
-		r.FinishCity = fr.name
+	name, err := s.geocoder.ReverseGeocode(ctx, p.Lat, p.Lng)
+	if err != nil || name == "" {
+		return placeholderCity
 	}
+	return name
 }

@@ -169,6 +169,32 @@ func TestNoteValidate(t *testing.T) {
 				Description: strings.Repeat("a", 255),
 			},
 		},
+		{
+			name: "non-straight indication without severity",
+			note: domain.Note{
+				Position:  validPos,
+				Type:      domain.NoteIndication,
+				Direction: domain.DirectionLeft,
+			},
+			wantErr:    true,
+			wantFields: []string{"severity"},
+		},
+		{
+			name: "straight indication may omit severity",
+			note: domain.Note{
+				Position:  validPos,
+				Type:      domain.NoteIndication,
+				Direction: domain.DirectionStraight,
+			},
+		},
+		{
+			name: "non-straight warning may omit severity",
+			note: domain.Note{
+				Position:  validPos,
+				Type:      domain.NoteWarning,
+				Direction: domain.DirectionLeft,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,6 +253,22 @@ func TestNoteSetValidate(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "notes[1]") {
 			t.Errorf("expected error to reference notes[1], got: %v", err)
+		}
+	})
+
+	t.Run("rejects an over-long name", func(t *testing.T) {
+		ns := domain.NoteSet{Name: strings.Repeat("a", 121), Notes: []domain.Note{validNote}}
+		err := ns.Validate()
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		assertFields(t, err, []string{"name"})
+	})
+
+	t.Run("name at the limit is valid", func(t *testing.T) {
+		ns := domain.NoteSet{Name: strings.Repeat("a", 120), Notes: []domain.Note{validNote}}
+		if err := ns.Validate(); err != nil {
+			t.Errorf("Validate() = %v, want nil", err)
 		}
 	})
 }
