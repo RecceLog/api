@@ -107,6 +107,78 @@ const docTemplate = `{
                     }
                 }
             },
+            "post": {
+                "description": "Validates and batch-inserts notes into the given set in a single transaction (unnest). All-or-nothing: one invalid or failing note rejects the whole batch. Only the set's author may add notes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notes"
+                ],
+                "summary": "Add notes to a set",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Note set ID (UUID)",
+                        "name": "setID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Notes payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NotesInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid note set id or malformed JSON",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the note set author",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "404": {
+                        "description": "Note set not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed (empty batch or bad note)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_RecceLog_api_internal_http_problem.Problem"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "Deletes the note set; ON DELETE CASCADE removes its notes.",
                 "tags": [
@@ -1031,6 +1103,17 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_RecceLog_api_internal_http_dto.NotesInput": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn"
+                    }
                 }
             }
         },

@@ -36,6 +36,7 @@ type NoteAggregate interface {
 	ListByRouteID(ctx context.Context, routeID uuid.UUID) ([]domain.NoteSet, error)
 	ListBySetID(ctx context.Context, setID uuid.UUID) ([]domain.Note, error)
 	GetSetAuthor(ctx context.Context, setID uuid.UUID) (uuid.UUID, error)
+	AddNotes(ctx context.Context, setID uuid.UUID, ns []domain.Note) ([]domain.Note, error)
 	UpdateNote(ctx context.Context, setID uuid.UUID, n domain.Note) (domain.Note, error)
 	DeleteNoteSet(ctx context.Context, setID uuid.UUID) error
 	DeleteNote(ctx context.Context, setID, noteID uuid.UUID) error

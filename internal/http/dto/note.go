@@ -24,6 +24,22 @@ func (in NoteSetInput) ToDomain() domain.NoteSet {
 	return domain.NoteSet{Name: in.Name, Notes: notes}
 }
 
+// NotesInput is the payload for appending several notes to an existing set in a
+// single request. Wrapped in an object (rather than a bare array) so the shape
+// can grow without breaking clients.
+type NotesInput struct {
+	Notes []NoteIn `json:"notes"`
+}
+
+// ToDomain maps the batch to domain notes, preserving order.
+func (in NotesInput) ToDomain() []domain.Note {
+	notes := make([]domain.Note, len(in.Notes))
+	for i, n := range in.Notes {
+		notes[i] = n.ToDomain()
+	}
+	return notes
+}
+
 // NoteIn is the writable portion of a Note. Severity is a pointer because
 // the column is nullable; absent means "no severity" rather than zero.
 type NoteIn struct {

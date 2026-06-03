@@ -76,6 +76,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  github_com_RecceLog_api_internal_http_dto.NotesInput:
+    properties:
+      notes:
+        items:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteIn'
+        type: array
+    type: object
   github_com_RecceLog_api_internal_http_dto.RouteDetailResponse:
     properties:
       author_id:
@@ -323,6 +330,56 @@ paths:
           schema:
             $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
       summary: Get notes of a note set
+      tags:
+      - notes
+    post:
+      consumes:
+      - application/json
+      description: 'Validates and batch-inserts notes into the given set in a single
+        transaction (unnest). All-or-nothing: one invalid or failing note rejects
+        the whole batch. Only the set''s author may add notes.'
+      parameters:
+      - description: Note set ID (UUID)
+        in: path
+        name: setID
+        required: true
+        type: string
+      - description: Notes payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NotesInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            items:
+              $ref: '#/definitions/github_com_RecceLog_api_internal_http_dto.NoteResponse'
+            type: array
+        "400":
+          description: Invalid note set id or malformed JSON
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "403":
+          description: Not the note set author
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "404":
+          description: Note set not found
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "422":
+          description: Validation failed (empty batch or bad note)
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_RecceLog_api_internal_http_problem.Problem'
+      summary: Add notes to a set
       tags:
       - notes
   /v1/notes/{setID}/{noteID}:

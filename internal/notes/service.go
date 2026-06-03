@@ -2,6 +2,8 @@ package notes
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -49,6 +51,37 @@ func (s *Service) CreateNoteSet(ctx context.Context, ns domain.NoteSet) (domain.
 	})
 	if err != nil {
 		return domain.NoteSet{}, err
+	}
+	return saved, nil
+}
+
+// AddNotes validates every note up front, then batch-inserts the whole slice in
+// a single transaction via unnest. Validating before the insert plus the
+// single-statement unnest guarantees all-or-nothing semantics: one invalid or
+// failing note prevents any of the others from being persisted.
+func (s *Service) AddNotes(ctx context.Context, setID uuid.UUID, ns []domain.Note) ([]domain.Note, error) {
+	if len(ns) == 0 {
+		return nil, &domain.ValidationError{Field: "notes", Message: "specify at least one note"}
+	}
+
+	var errs []error
+	for i, n := range ns {
+		if err := n.Validate(); err != nil {
+			errs = append(errs, fmt.Errorf("notes[%d]: %w", i, err))
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+
+	var saved []domain.Note
+	err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		saved, err = s.repo.AddNotes(ctx, setID, ns)
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
 	return saved, nil
 }

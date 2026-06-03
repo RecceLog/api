@@ -22,6 +22,16 @@ type noteMutation struct {
 func noteMutations() []noteMutation {
 	return []noteMutation{
 		{
+			name: "AddNotes",
+			invoke: func(svc *app.NoteService, caller, setID uuid.UUID) error {
+				_, err := svc.AddNotes(context.Background(), caller, setID, []domain.Note{{
+					Position: domain.Point{Lng: 1, Lat: 1}, Type: domain.NoteWarning,
+				}})
+				return err
+			},
+			ran: func(f *fakeNoteAgg) bool { return f.addNotesCalled },
+		},
+		{
 			name: "UpdateNote",
 			invoke: func(svc *app.NoteService, caller, setID uuid.UUID) error {
 				_, err := svc.UpdateNote(context.Background(), caller, setID, domain.Note{

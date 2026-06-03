@@ -92,6 +92,7 @@ type fakeNoteAgg struct {
 
 	createdNoteSet  domain.NoteSet
 	createNSCalled  bool
+	addNotesCalled  bool
 	updateCalled    bool
 	deleteSetCalled bool
 	deleteCalled    bool
@@ -116,6 +117,11 @@ func (f *fakeNoteAgg) ListBySetID(_ context.Context, _ uuid.UUID) ([]domain.Note
 
 func (f *fakeNoteAgg) GetSetAuthor(_ context.Context, _ uuid.UUID) (uuid.UUID, error) {
 	return f.author, f.authorErr
+}
+
+func (f *fakeNoteAgg) AddNotes(_ context.Context, _ uuid.UUID, ns []domain.Note) ([]domain.Note, error) {
+	f.addNotesCalled = true
+	return ns, nil
 }
 
 func (f *fakeNoteAgg) UpdateNote(_ context.Context, _ uuid.UUID, n domain.Note) (domain.Note, error) {

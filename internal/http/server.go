@@ -141,6 +141,7 @@ func (s *Server) Router() http.Handler {
 			// authenticated writes
 			r.Group(func(r chi.Router) {
 				r.Use(s.auth.Authenticate)
+				r.Post("/{setID}", s.handleAddNotes)
 				r.Delete("/{setID}", s.handleDeleteNoteSet)
 				r.Patch("/{setID}/{noteID}", s.handleUpdateNote)
 				r.Delete("/{setID}/{noteID}", s.handleDeleteNote)

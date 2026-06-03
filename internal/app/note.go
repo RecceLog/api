@@ -25,6 +25,17 @@ func (s *NoteService) GetNotes(ctx context.Context, setID uuid.UUID) ([]domain.N
 	return s.notes.ListBySetID(ctx, setID)
 }
 
+// AddNotes appends one or more notes to a set the caller authored, atomically:
+// the aggregate validates every note and inserts the whole batch in one
+// transaction via unnest, so a single invalid or failing note prevents the
+// others from being persisted. Only the set's creator may add notes.
+func (s *NoteService) AddNotes(ctx context.Context, callerID, setID uuid.UUID, notes []domain.Note) ([]domain.Note, error) {
+	if err := s.authorizeSetOwner(ctx, callerID, setID); err != nil {
+		return nil, err
+	}
+	return s.notes.AddNotes(ctx, setID, notes)
+}
+
 // UpdateNote replaces a note in a set the caller authored.
 func (s *NoteService) UpdateNote(ctx context.Context, callerID, setID uuid.UUID, note domain.Note) (domain.Note, error) {
 	if err := s.authorizeSetOwner(ctx, callerID, setID); err != nil {

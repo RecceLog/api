@@ -38,6 +38,49 @@ func (s *Server) handleGetNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto.FromNotes(notes))
 }
 
+// handleAddNotes appends one or more notes to an existing set in one request. The
+// app/aggregate layer validates every note and inserts the batch in a single
+// transaction via unnest, so an error in one note prevents the others from
+// being persisted (all-or-nothing). Only the set's creator may add notes.
+//
+// @Summary     Add notes to a set
+// @Description Validates and batch-inserts notes into the given set in a single transaction (unnest). All-or-nothing: one invalid or failing note rejects the whole batch. Only the set's author may add notes.
+// @Tags        notes
+// @Accept      json
+// @Produce     json
+// @Param       setID  path      string           true  "Note set ID (UUID)"
+// @Param       body   body      dto.NotesInput   true  "Notes payload"
+// @Success     201    {array}   dto.NoteResponse
+// @Failure     400    {object}  problem.Problem  "Invalid note set id or malformed JSON"
+// @Failure     403    {object}  problem.Problem  "Not the note set author"
+// @Failure     404    {object}  problem.Problem  "Note set not found"
+// @Failure     422    {object}  problem.Problem  "Validation failed (empty batch or bad note)"
+// @Failure     500    {object}  problem.Problem
+// @Router      /v1/notes/{setID} [post]
+func (s *Server) handleAddNotes(w http.ResponseWriter, r *http.Request) {
+	setID, err := uuid.Parse(chi.URLParam(r, "setID"))
+	if err != nil {
+		problem.BadRequest(w, r, "invalid note set id")
+		return
+	}
+
+	var body dto.NotesInput
+	if err := decodeJSON(w, r, &body); err != nil {
+		problem.BadRequest(w, r, err.Error())
+		return
+	}
+
+	// protected route: the auth middleware guarantees a user in context.
+	user, _ := auth.UserFrom(r.Context())
+
+	saved, err := s.notes.AddNotes(r.Context(), user.ID, setID, body.ToDomain())
+	if err != nil {
+		problem.From(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, dto.FromNotes(saved))
+}
+
 // handleUpdateNote replaces the mutable fields of a single note. The note
 // must belong to the set whose id is in the URL — a mismatch surfaces as
 // 404 rather than silently editing the wrong note.
