@@ -5,9 +5,9 @@ services:
     image: postgis/postgis:18-3.6
     container_name: reccelog_database
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-reccelog}
     volumes:
       - reccelog-db-data:/var/lib/postgresql
     healthcheck:
@@ -72,10 +72,10 @@ services:
       keycloak:
         condition: service_started
     ports:
-      - "${CONTAINER_EXTERNAL_PORT}:${API_PORT}"
+      - "${CONTAINER_EXTERNAL_PORT:-8080}:${API_PORT:-8080}"
     environment:
-      DATABASE_CONNECTION_STRING: ${DATABASE_CONNECTION_STRING}
-      API_PORT: ${API_PORT}
+      DATABASE_CONNECTION_STRING: ${DATABASE_CONNECTION_STRING:-postgres://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@reccelog_database:5432/$${POSTGRES_DB}}
+      API_PORT: ${API_PORT:-8080}
       # Auth (Keycloak). Same compose default network → the API reaches Keycloak
       # at http://keycloak:8080. ISSUER is the public `iss` the browser-obtained
       # tokens carry; DISCOVERY is the in-network URL used for OIDC discovery.
