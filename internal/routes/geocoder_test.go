@@ -3,6 +3,7 @@ package routes_test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	"github.com/RecceLog/api/internal/domain"
@@ -10,13 +11,15 @@ import (
 )
 
 // fakeGeocoder records each call and returns programmed responses per point.
+// EnrichCities reverse-geocodes the two endpoints concurrently, so calls is
+// atomic to stay race-free under `go test -race`.
 type fakeGeocoder struct {
 	responses map[string]string // "lat,lng" → name
-	calls     int
+	calls     atomic.Int64
 }
 
 func (f *fakeGeocoder) ReverseGeocode(_ context.Context, lat, lng float64) (string, error) {
-	f.calls++
+	f.calls.Add(1)
 	key := fmt.Sprintf("%.2f,%.2f", lat, lng)
 	return f.responses[key], nil
 }
@@ -68,8 +71,8 @@ func TestEnrichCities(t *testing.T) {
 		if r.StartCity != "Torino" || r.FinishCity != "Napoli" {
 			t.Errorf("cities overwritten: start=%q finish=%q", r.StartCity, r.FinishCity)
 		}
-		if geo.calls != 0 {
-			t.Errorf("geocoder called %d times, want 0", geo.calls)
+		if n := geo.calls.Load(); n != 0 {
+			t.Errorf("geocoder called %d times, want 0", n)
 		}
 	})
 
