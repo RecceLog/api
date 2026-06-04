@@ -4,6 +4,12 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+### Migrate: runs goose migrations against the target DB
+FROM base AS migrate
+RUN go install github.com/pressly/goose/v3/cmd/goose@latest
+COPY migrations /migrations
+ENTRYPOINT [ "goose", "-dir", "/migrations", "postgres" ]
+
 ### Dev: hot reload with air
 FROM base AS dev
 RUN go install github.com/air-verse/air@latest
