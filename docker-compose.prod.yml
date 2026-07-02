@@ -1,4 +1,19 @@
 services:
+    caddy:
+    image: caddy:2
+    container_name: reccelog_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # persists the TLS certificates
+      - caddy-config:/config
+    networks:
+      - default                 # reaches api + keycloak
+      - proxy                   # reaches the website container
+
   db:
     # no exposed port: DB is reachable only from the internal network
     restart: unless-stopped
@@ -40,3 +55,12 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  proxy:
+    external: true
+    name: reccelog-proxy
