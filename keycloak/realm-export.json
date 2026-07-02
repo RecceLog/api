@@ -17,10 +17,12 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:4200/*"
+        "http://localhost:4200/*",
+        "https://reccelog.duckdns.org/*"
       ],
       "webOrigins": [
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "https://reccelog.duckdns.org"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
