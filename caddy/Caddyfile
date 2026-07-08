@@ -1,0 +1,24 @@
+reccelog.duckdns.org {
+	encode gzip
+
+	# Keycloak: realm endpoints, login-page assets, admin console
+	handle /realms/* {
+		reverse_proxy keycloak:8080
+	}
+	handle /resources/* {
+		reverse_proxy keycloak:8080
+	}
+	handle /admin/* {
+		reverse_proxy keycloak:8080
+	}
+
+	# Go API (everything it serves is under /v1)
+	handle /v1/* {
+		reverse_proxy api:8080
+	}
+
+	# Everything else: the Angular SSR frontend
+	handle {
+		reverse_proxy reccelog_website:4000
+	}
+}
