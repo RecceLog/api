@@ -3,6 +3,10 @@ services:
     image: caddy:2
     container_name: reccelog_caddy
     restart: unless-stopped
+    environment:
+      # Public domain Caddy serves and requests a TLS cert for. One knob to
+      # retarget the whole stack (prod vs a test host). Must match KC_HOSTNAME.
+      SITE_DOMAIN: ${SITE_DOMAIN:?set the public domain, e.g. reccelog.duckdns.org}
     ports:
       - "80:80"
       - "443:443"
