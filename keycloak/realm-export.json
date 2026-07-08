@@ -18,15 +18,17 @@
       "directAccessGrantsEnabled": false,
       "redirectUris": [
         "http://localhost:4200/*",
-        "https://reccelog.duckdns.org/*"
+        "https://reccelog.duckdns.org/*",
+        "https://reccetest.duckdns.org/*"
       ],
       "webOrigins": [
         "http://localhost:4200",
-        "https://reccelog.duckdns.org"
+        "https://reccelog.duckdns.org",
+        "https://reccetest.duckdns.org"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:4200/*"
+        "post.logout.redirect.uris": "+"
       },
       "protocolMappers": [
         {
