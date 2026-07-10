@@ -17,14 +17,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:4200/*",
-        "https://reccelog.duckdns.org/*",
-        "https://reccetest.duckdns.org/*"
+        "${KC_WEB_ORIGIN}/*"
       ],
       "webOrigins": [
-        "http://localhost:4200",
-        "https://reccelog.duckdns.org",
-        "https://reccetest.duckdns.org"
+        "${KC_WEB_ORIGIN}"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
@@ -83,7 +79,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "test123",
+          "value": "${KC_TESTER_PASSWORD}",
           "temporary": false
         }
       ]

@@ -58,6 +58,12 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
+      # Resolved inside realm-export.json at import time (${KC_WEB_ORIGIN} /
+      # ${KC_TESTER_PASSWORD} placeholders): the reccelog-web client trusts
+      # only this origin, and the seed tester user gets this password. Only
+      # applied on a FRESH import — see keycloak/README.md.
+      KC_WEB_ORIGIN: ${KC_WEB_ORIGIN:-http://localhost:4200}
+      KC_TESTER_PASSWORD: ${KC_TESTER_PASSWORD:-test123}
     ports:
       - "${KC_PORT:-8081}:8080"
     volumes:

@@ -1,6 +1,7 @@
 # Site address comes from the SITE_DOMAIN env var passed to the caddy
-# container, so the same file serves prod (reccelog.duckdns.org) or any test
-# host (e.g. reccetest.duckdns.org) with one variable.
+# container, so the same file serves prod (reccelog.duckdns.org) or any other
+# environment (e.g. recce-staging.duckdns.org, recce-test.duckdns.org) with
+# one variable.
 {$SITE_DOMAIN} {
 	encode gzip
 
