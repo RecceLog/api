@@ -38,7 +38,6 @@ CREATE TABLE routes (
     author_id UUID REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(120),
     description VARCHAR(1000),
-    cover_photo_url VARCHAR(2048),
     -- path is a LineString; the bounds mirror the domain rules (at least two
     -- points to be a valid line, at most routePathMaxPoints) so an empty or
     -- oversized path is rejected at the DB too. ~53 pts/km → 5 000 points covers
