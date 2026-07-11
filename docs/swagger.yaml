@@ -87,8 +87,6 @@ definitions:
     properties:
       author_id:
         type: string
-      cover_photo_url:
-        type: string
       created_at:
         type: string
       description:
@@ -124,8 +122,6 @@ definitions:
     type: object
   github_com_RecceLog_api_internal_http_dto.RouteInput:
     properties:
-      cover_photo_url:
-        type: string
       description:
         type: string
       finish_city:
@@ -150,8 +146,6 @@ definitions:
   github_com_RecceLog_api_internal_http_dto.RouteSummaryResponse:
     properties:
       author_id:
-        type: string
-      cover_photo_url:
         type: string
       created_at:
         type: string

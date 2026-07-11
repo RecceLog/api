@@ -101,7 +101,6 @@ var registry = map[string]table{
 		col("author_id", optional(), expr("$%d::uuid")),
 		col("name", optional()),
 		col("description", optional()),
-		col("cover_photo_url", optional()),
 		col("path", geometry()),
 		col("length_m", auto()), // generated
 		col("start_city"),

@@ -36,14 +36,13 @@ type CreateRouteRequest struct {
 // RouteInput is the writable portion of a Route. Path is required and arrives
 // as an explicit polyline — the server does no routing.
 type RouteInput struct {
-	Name          string       `json:"name"`
-	Description   string       `json:"description"`
-	CoverPhotoURL string       `json:"cover_photo_url"`
-	Path          []Coordinate `json:"path"`
-	StartCity     string       `json:"start_city"`
-	FinishCity    string       `json:"finish_city"`
-	Vehicles      []string     `json:"vehicles"`
-	Waypoints     []WaypointIn `json:"waypoints"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Path        []Coordinate `json:"path"`
+	StartCity   string       `json:"start_city"`
+	FinishCity  string       `json:"finish_city"`
+	Vehicles    []string     `json:"vehicles"`
+	Waypoints   []WaypointIn `json:"waypoints"`
 }
 
 // ToDomain maps a RouteInput to the corresponding domain.Route value. The
@@ -63,14 +62,13 @@ func (in RouteInput) ToDomain() domain.Route {
 		wps[i] = w.ToDomain()
 	}
 	return domain.Route{
-		Name:          in.Name,
-		Description:   in.Description,
-		CoverPhotoURL: in.CoverPhotoURL,
-		Path:          path,
-		StartCity:     in.StartCity,
-		FinishCity:    in.FinishCity,
-		Vehicles:      vehicles,
-		Waypoints:     wps,
+		Name:        in.Name,
+		Description: in.Description,
+		Path:        path,
+		StartCity:   in.StartCity,
+		FinishCity:  in.FinishCity,
+		Vehicles:    vehicles,
+		Waypoints:   wps,
 	}
 }
 
@@ -90,17 +88,16 @@ func (w WaypointIn) ToDomain() domain.Waypoint {
 
 // RouteSummaryResponse is what list endpoints return per item.
 type RouteSummaryResponse struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	CoverPhotoURL string    `json:"cover_photo_url"`
-	LengthM       float64   `json:"length_m"`
-	StartCity     string    `json:"start_city"`
-	FinishCity    string    `json:"finish_city"`
-	Vehicles      []string  `json:"vehicles"`
-	AuthorID      uuid.UUID `json:"author_id,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	LengthM     float64   `json:"length_m"`
+	StartCity   string    `json:"start_city"`
+	FinishCity  string    `json:"finish_city"`
+	Vehicles    []string  `json:"vehicles"`
+	AuthorID    uuid.UUID `json:"author_id,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // FromSummary maps from the service-level projection.
@@ -110,17 +107,16 @@ func FromSummary(s routesdto.RouteSummary) RouteSummaryResponse {
 		vehicles[i] = string(v)
 	}
 	return RouteSummaryResponse{
-		ID:            s.ID,
-		Name:          s.Name,
-		Description:   s.Description,
-		CoverPhotoURL: s.CoverPhotoURL,
-		LengthM:       s.LengthM,
-		StartCity:     s.StartCity,
-		FinishCity:    s.FinishCity,
-		Vehicles:      vehicles,
-		AuthorID:      s.AuthorID,
-		CreatedAt:     s.CreatedAt,
-		UpdatedAt:     s.UpdatedAt,
+		ID:          s.ID,
+		Name:        s.Name,
+		Description: s.Description,
+		LengthM:     s.LengthM,
+		StartCity:   s.StartCity,
+		FinishCity:  s.FinishCity,
+		Vehicles:    vehicles,
+		AuthorID:    s.AuthorID,
+		CreatedAt:   s.CreatedAt,
+		UpdatedAt:   s.UpdatedAt,
 	}
 }
 
@@ -136,20 +132,19 @@ func FromSummaries(ss []routesdto.RouteSummary) []RouteSummaryResponse {
 // RouteDetailResponse is the full hydrated route returned by GET /v1/routes/:id.
 // NoteSets are composed by the handler from the notes service.
 type RouteDetailResponse struct {
-	ID            uuid.UUID         `json:"id"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	CoverPhotoURL string            `json:"cover_photo_url"`
-	Path          []Coordinate      `json:"path"`
-	LengthM       float64           `json:"length_m"`
-	StartCity     string            `json:"start_city"`
-	FinishCity    string            `json:"finish_city"`
-	Vehicles      []string          `json:"vehicles"`
-	Waypoints     []WaypointResp    `json:"waypoints"`
-	NoteSets      []NoteSetResponse `json:"note_sets"`
-	AuthorID      uuid.UUID         `json:"author_id,omitempty"`
-	CreatedAt     time.Time         `json:"created_at"`
-	UpdatedAt     time.Time         `json:"updated_at"`
+	ID          uuid.UUID         `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Path        []Coordinate      `json:"path"`
+	LengthM     float64           `json:"length_m"`
+	StartCity   string            `json:"start_city"`
+	FinishCity  string            `json:"finish_city"`
+	Vehicles    []string          `json:"vehicles"`
+	Waypoints   []WaypointResp    `json:"waypoints"`
+	NoteSets    []NoteSetResponse `json:"note_sets"`
+	AuthorID    uuid.UUID         `json:"author_id,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
 // FromRouteDetail composes the full response from the loaded route + the note
@@ -173,20 +168,19 @@ func FromRouteDetail(r domain.Route, nss []domain.NoteSet) RouteDetailResponse {
 		}
 	}
 	return RouteDetailResponse{
-		ID:            r.ID,
-		Name:          r.Name,
-		Description:   r.Description,
-		CoverPhotoURL: r.CoverPhotoURL,
-		Path:          path,
-		LengthM:       r.LengthM,
-		StartCity:     r.StartCity,
-		FinishCity:    r.FinishCity,
-		Vehicles:      vehicles,
-		Waypoints:     wps,
-		NoteSets:      FromNoteSets(nss),
-		AuthorID:      r.AuthorID,
-		CreatedAt:     r.CreatedAt,
-		UpdatedAt:     r.UpdatedAt,
+		ID:          r.ID,
+		Name:        r.Name,
+		Description: r.Description,
+		Path:        path,
+		LengthM:     r.LengthM,
+		StartCity:   r.StartCity,
+		FinishCity:  r.FinishCity,
+		Vehicles:    vehicles,
+		Waypoints:   wps,
+		NoteSets:    FromNoteSets(nss),
+		AuthorID:    r.AuthorID,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
 	}
 }
 

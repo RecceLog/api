@@ -28,11 +28,11 @@ func NewRoutes(pool *pgxpool.Pool) *Routes {
 
 const createRouteSQL = `
 INSERT INTO routes (
-    name, description, cover_photo_url, path,
+    name, description, path,
     start_city, finish_city, vehicles, author_id
 ) VALUES (
-    $1, $2, $3, ST_GeomFromText($4, 4326),
-    $5, $6, $7::text[]::vehicle_type[], $8
+    $1, $2, ST_GeomFromText($3, 4326),
+    $4, $5, $6::text[]::vehicle_type[], $7
 )
 RETURNING id, length_m, created_at, updated_at`
 
@@ -45,7 +45,7 @@ func (r *Routes) Create(ctx context.Context, route domain.Route) (domain.Route, 
 	authorID := nullableUUID(route.AuthorID)
 
 	err := q.QueryRow(ctx, createRouteSQL,
-		route.Name, route.Description, route.CoverPhotoURL, lineStringWKT(route.Path),
+		route.Name, route.Description, lineStringWKT(route.Path),
 		route.StartCity, route.FinishCity, vehicles, authorID,
 	).Scan(&route.ID, &route.LengthM, &route.CreatedAt, &route.UpdatedAt)
 	if err != nil {
@@ -194,7 +194,7 @@ func (r *Routes) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 const getRouteSQL = `
-SELECT id, name, description, cover_photo_url,
+SELECT id, name, description,
        ST_AsGeoJSON(path)::text,
        length_m, start_city, finish_city, vehicles, author_id,
        created_at, updated_at
@@ -219,7 +219,7 @@ func (r *Routes) GetDetailsByID(ctx context.Context, id uuid.UUID) (domain.Route
 		authorID    pgtype.UUID
 	)
 	err := q.QueryRow(ctx, getRouteSQL, id).Scan(
-		&out.ID, &out.Name, &out.Description, &out.CoverPhotoURL,
+		&out.ID, &out.Name, &out.Description,
 		&pathGeoJSON,
 		&out.LengthM, &out.StartCity, &out.FinishCity, &vehicles, &authorID,
 		&out.CreatedAt, &out.UpdatedAt,
@@ -290,7 +290,7 @@ func (r *Routes) listWaypoints(ctx context.Context, q Querier, routeID uuid.UUID
 }
 
 const listSummariesSQL = `
-SELECT id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(cover_photo_url, ''),
+SELECT id, COALESCE(name, ''), COALESCE(description, ''),
        length_m, COALESCE(start_city, ''), COALESCE(finish_city, ''),
        vehicles::text[], author_id, created_at, updated_at
 FROM routes
@@ -309,7 +309,7 @@ func (r *Routes) List(ctx context.Context) ([]dto.RouteSummary, error) {
 }
 
 const listNearbySummariesSQL = `
-SELECT id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(cover_photo_url, ''),
+SELECT id, COALESCE(name, ''), COALESCE(description, ''),
        length_m, COALESCE(start_city, ''), COALESCE(finish_city, ''),
        vehicles::text[], author_id, created_at, updated_at
 FROM routes
@@ -334,7 +334,7 @@ func (r *Routes) ListNearby(ctx context.Context, center domain.Point, radiusM fl
 }
 
 const listNearbyByVehiclesSQL = `
-SELECT id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(cover_photo_url, ''),
+SELECT id, COALESCE(name, ''), COALESCE(description, ''),
        length_m, COALESCE(start_city, ''), COALESCE(finish_city, ''),
        vehicles::text[], author_id, created_at, updated_at
 FROM routes
@@ -368,7 +368,7 @@ func scanSummaries(rows pgx.Rows) ([]dto.RouteSummary, error) {
 			authorID pgtype.UUID
 		)
 		if err := rows.Scan(
-			&s.ID, &s.Name, &s.Description, &s.CoverPhotoURL,
+			&s.ID, &s.Name, &s.Description,
 			&s.LengthM, &s.StartCity, &s.FinishCity, &vehicles, &authorID,
 			&s.CreatedAt, &s.UpdatedAt,
 		); err != nil {

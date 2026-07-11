@@ -174,17 +174,16 @@ func TestRouteValidate(t *testing.T) {
 			Path:          validPath,
 			Vehicles:      []domain.Vehicle{domain.VehicleCar},
 			NoteSets:      []domain.NoteSet{validNoteSet},
-			Name:          strings.Repeat("a", 121),
-			Description:   strings.Repeat("b", 1001),
-			CoverPhotoURL: strings.Repeat("c", 2049),
-			StartCity:     strings.Repeat("d", 121),
-			FinishCity:    strings.Repeat("e", 121),
+			Name:        strings.Repeat("a", 121),
+			Description: strings.Repeat("b", 1001),
+			StartCity:   strings.Repeat("d", 121),
+			FinishCity:  strings.Repeat("e", 121),
 		}
 		err := r.Validate()
 		if err == nil {
 			t.Fatal("Validate() = nil, want error")
 		}
-		assertFields(t, err, []string{"name", "description", "coverPhotoURL", "startCity", "finishCity"})
+		assertFields(t, err, []string{"name", "description", "startCity", "finishCity"})
 	})
 
 	t.Run("text fields at the limit are valid", func(t *testing.T) {
@@ -192,11 +191,10 @@ func TestRouteValidate(t *testing.T) {
 			Path:          validPath,
 			Vehicles:      []domain.Vehicle{domain.VehicleCar},
 			NoteSets:      []domain.NoteSet{validNoteSet},
-			Name:          strings.Repeat("a", 120),
-			Description:   strings.Repeat("b", 1000),
-			CoverPhotoURL: strings.Repeat("c", 2048),
-			StartCity:     strings.Repeat("d", 120),
-			FinishCity:    strings.Repeat("e", 120),
+			Name:        strings.Repeat("a", 120),
+			Description: strings.Repeat("b", 1000),
+			StartCity:   strings.Repeat("d", 120),
+			FinishCity:  strings.Repeat("e", 120),
 		}
 		if err := r.Validate(); err != nil {
 			t.Errorf("Validate() = %v, want nil", err)

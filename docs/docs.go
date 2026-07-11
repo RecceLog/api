@@ -1123,9 +1123,6 @@ const docTemplate = `{
                 "author_id": {
                     "type": "string"
                 },
-                "cover_photo_url": {
-                    "type": "string"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -1179,9 +1176,6 @@ const docTemplate = `{
         "github_com_RecceLog_api_internal_http_dto.RouteInput": {
             "type": "object",
             "properties": {
-                "cover_photo_url": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
                 },
@@ -1218,9 +1212,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "author_id": {
-                    "type": "string"
-                },
-                "cover_photo_url": {
                     "type": "string"
                 },
                 "created_at": {
